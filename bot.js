@@ -47,7 +47,7 @@ bot.on('ready', function (evt) {
     logger.info(bot.username + ' - (' + bot.id + ')');
 
     var ms = msToNextGame();
-    setTimeout(organiseGame, ms);
+    setTimeout(organiseGame, 5000, gameTimes);
     logger.info(ms);
     readPlayerList();
 });
@@ -134,8 +134,10 @@ function readPlayerList()
     });
 }
 
-function organiseGame()
+function organiseGame(times)
 {
+    for(time in times)
+        logger.info(times[time]);
     logger.info("gigantor memes" + announcementsChannelID);
     bot.sendMessage({
         to: announcementsChannelID,
@@ -151,11 +153,9 @@ function msToNextGame()
     
     var d = new Date(); // Today's date. (lots of info in here)
     var today = d.getDay(); // The current day of the week
-    var thisHour = d.getHours(); // Current hour
 
-    Math.max(...gameTimes);
     var i = 0;
-    if(d.getHours() >= Math.max(...gameTimes)) // Today's games are dealt with already
+    if(d.getHours() >= signUpTime) // Today's games are dealt with already
         i++;
 
     // This finds the number of days until the next game day
@@ -172,6 +172,7 @@ function msToNextGame()
         }
         i++;
     }
+    logger.info(daysToNextGameDay + " sagjhdagfhjksdf");
     var signup = new Date(d.getFullYear(), d.getMonth(), d.getDate(), signUpTime);
     return ((signup - d) + (24 * 60 * 60 * 1000 * daysToNextGameDay));
 }
