@@ -91,6 +91,7 @@ bot.on('message', function (user, userID, channelID, message, evt) {
 
 function printStandings(channelID)
 {
+    playerList.sort(compareMMR);
     var message = '```';
     var i; //this should be a foreach of some type probably
     for(i = 0; i < 20; i++)
@@ -175,4 +176,9 @@ function msToNextGame()
     logger.info(daysToNextGameDay + " sagjhdagfhjksdf");
     var signup = new Date(d.getFullYear(), d.getMonth(), d.getDate(), signUpTime);
     return ((signup - d) + (24 * 60 * 60 * 1000 * daysToNextGameDay));
+}
+
+function compareMMR(a, b)
+{
+    return (a.mmr < b.mmr)?(1):(-1);
 }
