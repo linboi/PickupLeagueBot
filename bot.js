@@ -1,4 +1,4 @@
-var Discord = require('discord.io');
+var Discord = require('discord.js');
 var logger = require('winston');
 var auth = require('./auth.json');
 var fs = require('fs');
@@ -6,7 +6,7 @@ var fs = require('fs');
 const gameDays = [0, 2]; // 0 is sunday, 1 is monday etc
 const signUpTime = 18;
 const gameTimes = [45, 105]; // minutes from signup time to team announcement
-var announcementsChannelID = 0;
+var announcementsChannelID = 608298295202414595;
 
 
 // Class to represent a player
@@ -35,61 +35,58 @@ logger.add(new logger.transports.Console, {
     colorize: true
 });
 logger.level = 'debug';
-// Initialize Discord Bot
+
+const bot = new Discord.Client();
+bot.login(auth.token);
+
+/* Initialize Discord Bot
 var bot = new Discord.Client({
    token: auth.token,
    autorun: true
-});
+});*/
 
-bot.on('ready', function (evt) {
+bot.once('ready', function (evt) {
     logger.info('Connected');
     logger.info('Logged in as: ');
     logger.info(bot.username + ' - (' + bot.id + ')');
 
+    announcementsChannel = bot.channels.get("608298295202414595");
     var ms = msToNextGame();
     setTimeout(organiseGame, 5000, gameTimes);
     logger.info(ms);
     readPlayerList();
 });
 
-bot.on('message', function (user, userID, channelID, message, evt) {
+bot.on('message', message => {
     // The bot will listen for messages that will start with `!`
-    if (message.substring(0, 1) == '!') {
-        var args = message.substring(1).split(' ');
+    if (message.content.substring(0, 1) == '!') {
+        var args = message.content.substring(1).split(' ');
         var cmd = args[0];
        
         args = args.splice(1);
-        switch(cmd) {
-            // !ping
-            case 'ping':
-                bot.sendMessage({
-                    to: channelID,
-                    message: 'Pong! @' + channelID + ' ' + message + ' ' + evt
-                });
-                break;
-			
+        switch(cmd) {			
 			case 'standings':
-                printStandings(channelID);
+                //message.react('🤔');
+                printStandings(message.channel);
                 break;
             case 'awaken':
                 readPlayerList();
-                bot.sendMessage({
-                    to: channelID,
-                    message: 'blah'
-                });
                 break;
             case 'setAnnouncements':
                 announcementsChannelID = channelID;
-                bot.sendMessage({
-                    to: channelID,
-                    message: 'Announcements channel set!'
-                });
+                channel.send('Announcements channel set!');
                 break;
          }
      }
 });
 
-function printStandings(channelID)
+bot.on('messageReactionAdd', (MessageReaction, user) =>
+{
+    console.log(MessageReaction._emoji.name);
+    announcementsChannel.send("gdsagkhdsaf" + MessageReaction);
+});
+
+function printStandings(channel)
 {
     playerList.sort(compareMMR);
     var message = '```';
@@ -101,10 +98,7 @@ function printStandings(channelID)
             + ' (' + playerList[i].wins + '-' + playerList[i].losses + ')\n';
     }
     message += '```';
-    bot.sendMessage({
-        to: channelID,
-        message: message
-    });
+    channel.send(message);
 }
 
 function readPlayerList()
@@ -140,10 +134,16 @@ function organiseGame(times)
     for(time in times)
         logger.info(times[time]);
     logger.info("gigantor memes" + announcementsChannelID);
-    bot.sendMessage({
-        to: announcementsChannelID,
-        message: 'SIGN UP FOR GAME HERE PLEASE THANKS'
+
+    // KILLLLLLL ME THIS PART WAS HARD TO GET RIGHT 
+    // these all return promises, the .react one doesn't give you the message back so you have to use the message from the outer scope
+    var signupMessage = announcementsChannel.send("SIGN UP HERE");
+    signupMessage.then( message =>{
+        message.react('8⃣').then( () => {
+            message.react('9⃣');
+        });
     });
+    
 }
 
 // This whole thing is really yuck but I couldn't find out to do it properly
@@ -181,4 +181,9 @@ function msToNextGame()
 function compareMMR(a, b)
 {
     return (a.mmr < b.mmr)?(1):(-1);
+}
+
+function compareGamesMissed(a, b)
+{
+    return (a.gamesMissed < b.gamesMissed)?(1):(-1);
 }
