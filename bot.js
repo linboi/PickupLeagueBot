@@ -5,7 +5,7 @@ var fs = require('fs');
 
 const gameDays = [0, 2]; // 0 is sunday, 1 is monday etc
 const signUpTime = 18;
-const gameTimes = [45, 105]; // minutes from signup time to team announcement
+const gameTimes = [45, 105, 799, 23, 432, 5]; // minutes from signup time to team announcement
 var announcementsChannelID = 608298295202414595;
 
 
@@ -52,7 +52,7 @@ bot.once('ready', function (evt) {
 
     announcementsChannel = bot.channels.get("608298295202414595");
     var ms = msToNextGame();
-    setTimeout(organiseGame, 5000, gameTimes);
+    setTimeout(organiseGame, 2000, gameTimes);
     logger.info(ms);
     readPlayerList();
 });
@@ -82,8 +82,7 @@ bot.on('message', message => {
 
 bot.on('messageReactionAdd', (MessageReaction, user) =>
 {
-    console.log(MessageReaction._emoji.name);
-    announcementsChannel.send("gdsagkhdsaf" + MessageReaction);
+    
 });
 
 function printStandings(channel)
@@ -131,6 +130,10 @@ function readPlayerList()
 
 function organiseGame(times)
 {
+    if(times.length > 9)
+        console.error("can't schedule more than 9 games in one message");
+    var emojiList = ['1⃣', '2⃣', '3⃣', '4⃣', '5⃣', '6⃣', '7⃣', '8⃣', '9⃣'];
+    var timespass = times;
     for(time in times)
         logger.info(times[time]);
     logger.info("gigantor memes" + announcementsChannelID);
@@ -139,11 +142,42 @@ function organiseGame(times)
     // these all return promises, the .react one doesn't give you the message back so you have to use the message from the outer scope
     var signupMessage = announcementsChannel.send("SIGN UP HERE");
     signupMessage.then( message =>{
-        message.react('8⃣').then( () => {
-            message.react('9⃣');
-        });
+        for(i = 0; i < times.length; i++)
+            message.react(emojiList[i]);
     });
-    
+
+    // Now we're going to wait until it's time to read those reactions
+    for(i = 0; i < times.length; i++)
+    {
+        
+        signupMessage.then( message => {
+            console.log(timespass[i]);
+            announcementsChannel.send("bleh" + emojiList[i]);
+            args = [message, emojiList[i], times[i]];
+            setTimeout(buildMatch, (times[i]*60*1000), args);
+        });
+    }
+}
+
+// We read the reactions on the message which tells us what players want to play in that match
+function buildMatch(args)
+{
+    message = args[0];
+    emoji = args[1];
+    time = args[2];
+    // maybe I shouldn't be using this as an array, it was a collection before (which extends map)
+    // maybe this would all be better as a collection.
+    console.log("ghdsagjdshaf" + message.toString());
+    console.log("fkfjd" + time);
+    var reactions = message.reactions.array();
+    console.log(message.reactions.length);
+    for(var i = 0; i < reactions.length; i++)
+    {
+        console.log(reactions[i]);
+        if(reactions[i]._emoji.name == emoji)
+            announcementsChannel.send("THE BEANS ARE FOUND");
+    }
+    announcementsChannel.send("we the bois");
 }
 
 // This whole thing is really yuck but I couldn't find out to do it properly
