@@ -5,7 +5,7 @@ var fs = require('fs');
 
 const gameDays = [0, 2]; // 0 is sunday, 1 is monday etc
 const signUpTime = 18;
-const gameTimes = [45, 105, 799, 23, 432, 5]; // minutes from signup time to team announcement
+const gameTimes = [2]; // minutes from signup time to team announcement
 var announcementsChannelID = 608298295202414595;
 
 
@@ -87,7 +87,7 @@ bot.on('messageReactionAdd', (MessageReaction, user) =>
 
 function printStandings(channel)
 {
-    playerList.sort(compareMMR);
+    playerList.sort(byMMR);
     var message = '```';
     var i; //this should be a foreach of some type probably
     for(i = 0; i < 20; i++)
@@ -128,57 +128,75 @@ function readPlayerList()
     });
 }
 
-function organiseGame(times)
+async function organiseGame(times)
 {
     if(times.length > 9)
         console.error("can't schedule more than 9 games in one message");
     var emojiList = ['1⃣', '2⃣', '3⃣', '4⃣', '5⃣', '6⃣', '7⃣', '8⃣', '9⃣'];
-    var timespass = times;
     for(time in times)
         logger.info(times[time]);
     logger.info("gigantor memes" + announcementsChannelID);
 
     // KILLLLLLL ME THIS PART WAS HARD TO GET RIGHT 
     // these all return promises, the .react one doesn't give you the message back so you have to use the message from the outer scope
-    var signupMessage = announcementsChannel.send("SIGN UP HERE");
-    signupMessage.then( message =>{
-        for(i = 0; i < times.length; i++)
-            message.react(emojiList[i]);
-    });
+    var signupMessage = await announcementsChannel.send("SIGN UP HERE");
+    console.log(signupMessage.toString());
+    for(i = 0; i < times.length; i++)
+        await signupMessage.react(emojiList[i]);
 
     // Now we're going to wait until it's time to read those reactions
     for(i = 0; i < times.length; i++)
     {
-        
-        signupMessage.then( message => {
-            console.log(timespass[i]);
-            announcementsChannel.send("bleh" + emojiList[i]);
-            args = [message, emojiList[i], times[i]];
-            setTimeout(buildMatch, (times[i]*60*1000), args);
-        });
+        setTimeout(buildMatch, (times[i]*3*1000), signupMessage, emojiList[i]);
     }
 }
 
 // We read the reactions on the message which tells us what players want to play in that match
-function buildMatch(args)
+function buildMatch(message, emoji)
 {
-    message = args[0];
-    emoji = args[1];
-    time = args[2];
     // maybe I shouldn't be using this as an array, it was a collection before (which extends map)
     // maybe this would all be better as a collection.
-    console.log("ghdsagjdshaf" + message.toString());
-    console.log("fkfjd" + time);
-    var reactions = message.reactions.array();
-    console.log(message.reactions.length);
-    for(var i = 0; i < reactions.length; i++)
+    var reactions = message.reactions;
+    var matchPlayerList = [];
+
+    reactions.forEach((element) => addPlayerToMatch(element, matchPlayerList, emoji));
+    matchPlayerList.forEach(element => console.log(element.nameDiscord));
+    /*for(var i = 0; i < reactions.length; i++)
     {
-        console.log(reactions[i]);
         if(reactions[i]._emoji.name == emoji)
-            announcementsChannel.send("THE BEANS ARE FOUND");
+        {
+            var usersForThisMatchTime = reactions[i].users.array();
+            for(var j = 0; j < usersForThisMatchTime.length; j++)
+            {
+                var matchPlayerList.push
+                announcementsChannel.send(usersForThisMatchTime[j].username);
+            }
+        }
     }
-    announcementsChannel.send("we the bois");
+    announcementsChannel.send("we the bois");*/
 }
+
+function addPlayerToMatch(thisReaction, list, thisGame)
+{
+    if(thisReaction._emoji.name == thisGame)
+    {
+        thisReaction.users.forEach(element => {
+            var playerIndex = playerListContains(playerList, element.username);
+            console.log(playerIndex);
+            if(playerIndex != -1)
+            {
+                list.push(playerList[playerIndex]);
+                console.log(playerIndex);
+            }
+        });
+    }
+}
+
+/*  
+    ----------------------------------------HELPERS---------------------------------------------------------
+    These functions are just small tasks to keep the code cleaner
+    --------------------------------------------------------------------------------------------------------
+*/
 
 // This whole thing is really yuck but I couldn't find out to do it properly
 function msToNextGame()
@@ -187,7 +205,7 @@ function msToNextGame()
         console.error("CANNOT HAVE NO GAME DAYS/TIMES");
     
     var d = new Date(); // Today's date. (lots of info in here)
-    var today = d.getDay(); // The current day of the week
+    var today = d.getDay(); // The current day of the week (0 is sunday, 1 is monday etc)
 
     var i = 0;
     if(d.getHours() >= signUpTime) // Today's games are dealt with already
@@ -212,12 +230,26 @@ function msToNextGame()
     return ((signup - d) + (24 * 60 * 60 * 1000 * daysToNextGameDay));
 }
 
-function compareMMR(a, b)
+function byMMR(a, b)
 {
     return (a.mmr < b.mmr)?(1):(-1);
 }
 
-function compareGamesMissed(a, b)
+function byGamesMissed(a, b)
 {
     return (a.gamesMissed < b.gamesMissed)?(1):(-1);
 }
+
+// this function is very specific, maybe this part of the code could be written better
+function playerListContains(listToCheck, username)
+{
+    var contains = -1;
+    listToCheck.forEach((element, index) => 
+        {
+            if(element.nameDiscord == username)
+                contains = index;
+        });
+    return contains;
+}
+
+// -----------------------------------------END HELPERS---------------------------------------------------------
