@@ -12,10 +12,10 @@ var announcementsChannelID = 608298295202414595;
 // Class to represent a player
 class Player 
 {
-    constructor(nameDisplay, nameDiscord, rolePrimary, roleSecondary, mmr=1000, wins=0, losses=0, gamesMissed=0)
+    constructor(nameDisplay, discordId, rolePrimary, roleSecondary, mmr=1100, wins=0, losses=0, gamesMissed=0)
     {
         this.nameDisplay = nameDisplay;
-        this.nameDiscord = nameDiscord;
+        this.discordId = discordId;
         this.rolePrimary = rolePrimary;
         this.roleSecondary = roleSecondary;
         this.mmr = mmr;
@@ -52,7 +52,7 @@ bot.once('ready', function (evt) {
 
     announcementsChannel = bot.channels.get("608298295202414595");
     var ms = msToNextGame();
-    setTimeout(organiseGame, 2000, gameTimes);
+    //setTimeout(organiseGame, 2000, gameTimes);
     logger.info(ms);
     readPlayerList();
 });
@@ -64,16 +64,20 @@ bot.on('message', message => {
         var cmd = args[0];
        
         args = args.splice(1);
+
         switch(cmd) {			
 			case 'standings':
                 //message.react('🤔');
                 printStandings(message.channel);
                 break;
-            case 'awaken':
+            /*case 'awaken':
                 readPlayerList();
+                break;*/
+            case 'register':
+                addNewPlayer(args, message.author.id, message.channel);
                 break;
             case 'setAnnouncements':
-                announcementsChannelID = channelID;
+                announcementsChannelID = channelID;             // this works?
                 channel.send('Announcements channel set!');
                 break;
          }
@@ -82,7 +86,8 @@ bot.on('message', message => {
 
 bot.on('messageReactionAdd', (MessageReaction, user) =>
 {
-    
+    logger.info('' + MessageReaction);
+    logger.info(user);
 });
 
 function printStandings(channel)
@@ -98,6 +103,22 @@ function printStandings(channel)
     }
     message += '```';
     channel.send(message);
+}
+
+function addNewPlayer(text, id, channel){
+    if(text.length < 2){
+        channel.send("Error registering player. Please use the following format:\n```!register PickupLeagueBot Top/Fill```");
+        return;
+    }
+    try{
+        var roles = text[text.length - 1].split("/");
+        var user = text.slice(0, text.length - 1).join(" ");
+        var p = new Player(user, id, roles[0].toUpperCase(), roles[1].toUpperCase())
+        playerList.push(p);
+        channel.send("Player " + user + " registered!");
+    } catch (err){
+        channel.send("Error registering player. Please use the following format:\n```!register PickupLeagueBot Top/Fill```");
+    }
 }
 
 function readPlayerList()
@@ -139,6 +160,8 @@ async function organiseGame(times)
 
     // KILLLLLLL ME THIS PART WAS HARD TO GET RIGHT 
     // these all return promises, the .react one doesn't give you the message back so you have to use the message from the outer scope
+
+    announcementsChannel.send("THE BEANS ARE FOUND");
     var signupMessage = await announcementsChannel.send("SIGN UP HERE");
     console.log(signupMessage.toString());
     for(i = 0; i < times.length; i++)
