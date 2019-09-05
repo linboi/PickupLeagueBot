@@ -94,7 +94,7 @@ bot.on('message', message => {
     // The bot will listen for messages that will start with `!`
     if (message.content.substring(0, 1) == '!') {
         var args = message.content.substring(1).split(' ');
-        var cmd = args[0];
+        var cmd = args[0].toLowerCase();
        
         args = args.splice(1);
 
@@ -110,7 +110,7 @@ bot.on('message', message => {
                 addNewPlayer(args, message.author.id, message.channel);
                 break;
             case 'setAnnouncements':
-                announcementsChannelID = channelID;             // this works?
+                announcementsChannelID = message.channel;
                 channel.send('Announcements channel set!');
                 break;
          }
