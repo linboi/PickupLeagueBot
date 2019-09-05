@@ -5,7 +5,7 @@ var fs = require('fs');
 
 const gameDays = [0, 2]; // 0 is sunday, 1 is monday etc
 const signUpTime = 18;
-const gameTimes = [2]; // minutes from signup time to team announcement
+const gameTimes = [2, 500]; // minutes from signup time to team announcement
 var announcementsChannelID = 608298295202414595;
 
 
@@ -23,6 +23,39 @@ class Player
         this.losses = losses;
         this.gamesMissed = gamesMissed;
         this.namePadded = nameDisplay.padEnd(30, ' ');
+    }
+}
+
+class Match
+{
+    constructor(blueTeam, redTeam)
+    {
+        this.blueTeam = blueTeam;
+        this.redTeam = redTeam;
+        this.blueMMR = (blueTeam[0].mmr + blueTeam[1].mmr + blueTeam[2].mmr + blueTeam[3].mmr + blueTeam[4].mmr)/5;
+        this.redMMR = (redTeam[0].mmr + redTeam[1].mmr + redTeam[2].mmr + redTeam[3].mmr + redTeam[4].mmr)/5;
+    }
+
+    teamsString()
+    {
+        var str = "BLUE TEAM: "
+        for(var i = 0; i < 5; i++)
+        {
+            if(i<4)
+                str += this.blueTeam[i].nameDisplay + ", ";
+            else
+                str += this.blueTeam[i].nameDisplay;
+        }
+        str += "\nRED TEAM: "
+        for(var i = 0; i < 5; i++)
+        {
+            if(i<4)
+                str += this.redTeam[i].nameDisplay + ", ";
+            else
+                str += this.redTeam[i].nameDisplay;
+        }
+        console.log(str);
+        return str;
     }
 }
 
@@ -152,7 +185,7 @@ async function organiseGame(times)
 }
 
 // We read the reactions on the message which tells us what players want to play in that match
-function buildMatch(message, emoji)
+async function buildMatch(message, emoji)
 {
     // maybe I shouldn't be using this as an array, it was a collection before (which extends map)
     // maybe this would all be better as a collection.
@@ -161,6 +194,33 @@ function buildMatch(message, emoji)
 
     reactions.forEach((element) => addPlayerToMatch(element, matchPlayerList, emoji));
     matchPlayerList.forEach(element => console.log(element.nameDiscord));
+    console.log(matchPlayerList.length);
+    if((matchPlayerList.length % 10) >= 8)
+    {
+        announcementsChannel.send("Almost enough players for an extra game (need " + (10-(matchPlayerList.length % 10)) + "), waiting another 5 minutes to start");
+        await setTimeout(() => {}, 5*60*1000);
+    }
+    for(var i = 0; i < playerList.length; i++)
+        matchPlayerList.push(playerList[i]); // This is just for testing, since I can't react to the message 30 times
+
+    shuffle(matchPlayerList);
+
+    var numOfGames = Math.floor(matchPlayerList.length / 10);
+    for(var i = 0; i < matchPlayerList.length; i++)
+    {
+        //console.log(matchPlayerList[i].nameDisplay);
+    }
+    announcementsChannel.send("We have numbers for " + (numOfGames) + " games!");
+    for(var i = 0; i < numOfGames; i++)
+    {
+        var gameMessage = "GAME " + (i+1) + ":\n";
+        var blueTeam = [matchPlayerList[(i*10)], matchPlayerList[(i*10) + 1], matchPlayerList[(i*10) + 2], matchPlayerList[(i*10) + 3], matchPlayerList[(i*10) + 4]];
+        var redTeam = [matchPlayerList[(i*10) + 5], matchPlayerList[(i*10) + 6], matchPlayerList[(i*10) + 7], matchPlayerList[(i*10) + 8], matchPlayerList[(i*10) + 9]];
+        console.log(blueTeam);
+        var thisGame = new Match(blueTeam, redTeam);
+        await announcementsChannel.send(gameMessage + thisGame.teamsString() + "\n\n\n");
+    }
+    
     /*for(var i = 0; i < reactions.length; i++)
     {
         if(reactions[i]._emoji.name == emoji)
@@ -186,7 +246,6 @@ function addPlayerToMatch(thisReaction, list, thisGame)
             if(playerIndex != -1)
             {
                 list.push(playerList[playerIndex]);
-                console.log(playerIndex);
             }
         });
     }
@@ -225,9 +284,19 @@ function msToNextGame()
         }
         i++;
     }
-    logger.info(daysToNextGameDay + " sagjhdagfhjksdf");
     var signup = new Date(d.getFullYear(), d.getMonth(), d.getDate(), signUpTime);
     return ((signup - d) + (24 * 60 * 60 * 1000 * daysToNextGameDay));
+}
+
+function shuffle(list)
+{
+    for(var i = list.length - 1; i > 0; i--)
+    {
+        var randInt = Math.floor(Math.random() * (i + 1));
+        var temp = list[i];
+        list[i] = list[randInt];
+        list[randInt] = temp;
+    }
 }
 
 function byMMR(a, b)
