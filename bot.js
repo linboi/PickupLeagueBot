@@ -1,21 +1,28 @@
 var Discord = require('discord.js');
-var logger = require('winston');
 var auth = require('./auth.json');
 var fs = require('fs');
 
-const gameDays = [0, 2]; // 0 is sunday, 1 is monday etc
-const signUpTime = 18;
-const gameTimes = [2, 500]; // minutes from signup time to team announcement
-var announcementsChannelID = 608298295202414595;
+// -----CONSTANTS-----
+
+const gameDays = [ 3]; // 0 is sunday, 1 is monday etc
+const signUpTime = 19;
+const gameTimes = [45, 105]; // minutes from signup time to team announcement
 
 // The amount of MMR lower someone should be considered if they're on a secondary role/autofilled
 const secondariesPenalty = 5;
 const autofillsPenalty = 20;
 
+// -----GLOBALS-----
+// Global player list
+var playerList = [];
+
+var activeGames = [];
+var activeCheckinMessages = [];
+
 // Class to represent a player
 class Player 
 {
-    constructor(nameDisplay, discordId, rolePrimary, roleSecondary, mmr=1100, wins=0, losses=0, gamesMissed=0)
+    constructor(nameDisplay, discordId, rolePrimary, roleSecondary, mmr=1200, wins=0, losses=0, gamesMissed=0, kFactor=100)
     {
         this.nameDisplay = nameDisplay;
         this.discordId = discordId;
@@ -26,6 +33,7 @@ class Player
         this.losses = losses;
         this.gamesMissed = gamesMissed;
         this.namePadded = nameDisplay.padEnd(30, ' ');
+        this.kFactor = kFactor;
     }
 
     getMMR()
@@ -51,6 +59,11 @@ class Team
     {
         var total = this.top.mmr + this.jung.mmr + this.mid.mmr + this.adc.mmr + this.supp.mmr;
         return ((total/5) - (this.secondaries*secondariesPenalty + this.autofills*autofillsPenalty));
+    }
+
+    toArray()
+    {
+        return [this.top, this.jung, this.mid, this.adc, this.supp];
     }
 
     fillTeam(player)
@@ -96,10 +109,11 @@ class Team
 
 class Match
 {
-    constructor(blueTeam, redTeam)
+    constructor(blueTeam, redTeam, sparePlayers)
     {
         this.blueTeam = blueTeam;
         this.redTeam = redTeam;
+        this.sparePlayers = sparePlayers;
     }
 
     teamsString()
@@ -110,37 +124,82 @@ class Match
                 + this.redTeam.mid.nameDisplay + ", " + this.redTeam.adc.nameDisplay + ", " + this.redTeam.supp.nameDisplay;
         return str;
     }
+
+    // Returns -1 if player is not in this match, returns 1 if they're on blue team, 2 if they're on red team
+    matchContainsPlayer(id)
+    {
+        var blueArray = this.blueTeam.toArray();
+        var redArray = this.redTeam.toArray();
+        for(var i = 0; i < blueArray.length; i++)
+        {
+            if(blueArray[i].discordId == id)
+                return 1;
+        }
+        for(var i = 0; i < redArray.length; i++)
+        {
+            if(redArray[i].discordId == id)
+                return 2;
+        }
+        return -1;
+    }
+
+    replacePlayer(id, team, replacement)
+    {
+        if(team == 1)
+        {
+            switch(id)
+            {
+                case this.blueTeam.top.discordId:
+                    this.blueTeam.top = replacement;
+                    return 1;
+                case this.blueTeam.jung.discordId:
+                    this.blueTeam.jung = replacement;
+                    return 1;
+                case this.blueTeam.mid.discordId:
+                    this.blueTeam.mid = replacement;
+                    return 1;
+                case this.blueTeam.adc.discordId:
+                    this.blueTeam.adc = replacement;
+                    return 1;
+                case this.blueTeam.supp.discordId:
+                    this.blueTeam.supp = replacement;
+                    return 1;
+            }
+                
+        }
+        else if(team == 2)
+        {
+            switch(id)
+            {
+                case this.redTeam.top.discordId:
+                    this.redTeam.top = replacement;
+                    return 1;
+                case this.redTeam.jung.discordId:
+                    this.redTeam.jung = replacement;
+                    return 1;
+                case this.redTeam.mid.discordId:
+                    this.redTeam.mid = replacement;
+                    return 1;
+                case this.redTeam.adc.discordId:
+                    this.redTeam.adc = replacement;
+                    return 1;
+                case this.redTeam.supp.discordId:
+                    this.redTeam.supp = replacement;
+                    return 1;
+            }
+        }
+        console.error("This should be unreachable");
+    }
 }
-
-// Global player list
-var playerList = [];
-
-// Configure logger settings
-logger.remove(logger.transports.Console);
-logger.add(new logger.transports.Console, {
-    colorize: true
-});
-logger.level = 'debug';
 
 const bot = new Discord.Client();
 bot.login(auth.token);
 
-/* Initialize Discord Bot
-var bot = new Discord.Client({
-   token: auth.token,
-   autorun: true
-});*/
-
 bot.once('ready', function (evt) {
-    logger.info('Connected');
-    logger.info('Logged in as: ');
-    logger.info(bot.username + ' - (' + bot.id + ')');
-
-    announcementsChannel = bot.channels.get("608298295202414595");
-    var ms = msToNextGame();
-    //setTimeout(organiseGame, 2000, gameTimes);
-    logger.info(ms);
     readPlayerList();
+    announcementsChannel = bot.channels.get("591003151176564746");
+    console.log("Bot connected.");
+    repeatedlyStartGames(); // This starts a recursive function which will start a game at the next game time, then call itself.
 });
 
 bot.on('message', message => {
@@ -153,12 +212,9 @@ bot.on('message', message => {
 
         switch(cmd) {			
 			case 'standings':
-                //message.react('🤔');
-                printStandings(message.channel);
+                printStandings(message.channel, args[0]);
                 break;
-            /*case 'awaken':
-                readPlayerList();
-                break;*/
+            case 'roles':
             case 'register':
                 addNewPlayer(args, message.author.id, message.channel);
                 break;
@@ -166,45 +222,66 @@ bot.on('message', message => {
                 announcementsChannelID = message.channel;
                 channel.send('Announcements channel set!');
                 break;
+            case 'win':
+                resolveMatch(message.channel, message.author.id);
+                break;
+            case 'missing':
+                missingPlayer(message.channel, args);
+                break;
+            case 'quit':
+                writePlayerList();
+                break;
          }
      }
 });
 
 bot.on('messageReactionAdd', (MessageReaction, user) =>
 {
-    logger.info('' + MessageReaction);
-    logger.info(user);
+    if(user.bot == true)
+    {
+        return 1;
+    }
+    activeCheckinMessages.forEach((element) => {
+        if(element.id == MessageReaction.message.id)
+        {
+            var playerIsRegistered = false;
+            playerList.forEach(element => {
+                if(element.discordId == user.id)
+                {
+                    playerIsRegistered = true;
+                }
+            });
+            if(!playerIsRegistered)
+            {
+                MessageReaction.remove(user);
+                user.send("You need to register, son");
+            }
+        }
+    });
 });
 
-function printStandings(channel)
+function repeatedlyStartGames()
 {
+    var ms = msToNextGame();
+    setTimeout(organiseGameTime, ms, gameTimes);
+    setTimeout(repeatedlyStartGames, (ms + 20000));
+}
+
+function printStandings(channel, page)
+{
+    if(!page)
+        page = 1;
     playerList.sort(byMMR);
     var message = '```';
-    var i; //this should be a foreach of some type probably
-    for(i = 0; i < 20; i++)
+    for(var i = (0+20*(page-1)); i < (20 + 20*(page-1)) && i < playerList.length; i++)
     {
+        var intMMR = Math.trunc(playerList[i].mmr);
         message += ((i+1).toString().padStart(3, ' ')) + '. ' + playerList[i].namePadded 
-            + playerList[i].mmr.toString().padEnd(4, ' ') 
+            + intMMR.toString().padEnd(4, ' ') 
             + ' (' + playerList[i].wins + '-' + playerList[i].losses + ')\n';
     }
     message += '```';
     channel.send(message);
-}
-
-function addNewPlayer(text, id, channel){
-    if(text.length < 2){
-        channel.send("Error registering player. Please use the following format:\n```!register PickupLeagueBot Top/Fill```");
-        return;
-    }
-    try{
-        var roles = text[text.length - 1].split("/");
-        var user = text.slice(0, text.length - 1).join(" ");
-        var p = new Player(user, id, roles[0].toUpperCase(), roles[1].toUpperCase())
-        playerList.push(p);
-        channel.send("Player " + user + " registered!");
-    } catch (err){
-        channel.send("Error registering player. Please use the following format:\n```!register PickupLeagueBot Top/Fill```");
-    }
 }
 
 function readPlayerList()
@@ -222,75 +299,201 @@ function readPlayerList()
         for(i = 0; i < lines.length; i++)
         {
             var currentPlayerLine = lines[i].trim();
-            var expr = new RegExp('(.+) ([F|T|J|M|A|S])/([F|T|J|M|A|S]) ([0-9]+) ([0-9]+)\-([0-9]+).*$');
+            var expr = new RegExp('(.+) ([0-9]+) ([F|T|J|M|A|S])/([F|T|J|M|A|S]) ([0-9]+) ([0-9]+)\-([0-9]+) ([0-9]+) ([0-9]).*$');
             var result = expr.exec(currentPlayerLine);
             if(!result)
-                console.error('error parsing players.txt at line ' + (i+1) + ' \"' + currentPlayerLine + '\"');
+            {
+                if(currentPlayerLine != "")
+                    console.error('error parsing players.txt at line ' + (i+1) + ' \"' + currentPlayerLine + '\"');
+            }
             else
             {
-                temp = new Player(result[1], result[1], result[2], result[3], parseInt(result[4]), wins=parseInt(result[5]), losses=parseInt(result[6]));
+                temp = new Player(result[1], parseInt(result[2]), result[3], result[4], parseInt(result[5]), wins=parseInt(result[6]), losses=parseInt(result[7]),
+                                    gamesMissed=parseInt(result[8]), kFactor=parseInt(result[9]));
                 playerList.push(temp);
             }
         }
     });
 }
 
-async function organiseGame(times)
+function writePlayerList()
+{
+    var fileContents = "";
+    for(var i = 0; i < playerList.length; i++)
+    {
+        fileContents += playerList[i].nameDisplay + " " +
+                        playerList[i].discordId + " " +
+                        playerList[i].rolePrimary + "/" +
+                        playerList[i].roleSecondary + " " +
+                        playerList[i].mmr + " " +
+                        playerList[i].wins + "-" +
+                        playerList[i].losses + " " +
+                        playerList[i].gamesMissed + " " +
+                        playerList[i].kFactor + "\n";
+    }
+    fs.writeFile('players.txt', fileContents, (err, fd) => {
+        if(err)
+            console.error("Error while writing file Players.txt\n" + err);
+    });
+}
+
+function addNewPlayer(text, id, channel){
+    text = text.join(" ");
+    var expr = new RegExp('(.+) (.+)/(.+)'); // (^[0-9\\p{L} _\\.]+) < riot say this is RegExp for a valid summoner name but it didn't work for me
+    var result = expr.exec(text);
+    if(!result)
+        channel.send("Error registering player. Please use the following format:\n```!register summonerName Top/Fill```");
+    else
+    {
+        var alreadyRegistered = false;
+        var regPlayer;
+        playerList.forEach(element => {
+            if(element.discordId == id)
+            {
+                alreadyRegistered = true;
+                channel.send("Player already registered, updating roles and IGN.");
+                regPlayer = element;
+            }
+        });
+        var summonerName = result[1];
+        if(result[2].substring(0, 3).toUpperCase() == "MAR" || result[2].substring(0, 3).toUpperCase() == "BOT")
+            result[2] = 'A';
+        if(result[3].substring(0, 3).toUpperCase() == "MAR" || result[3].substring(0, 3).toUpperCase() == "BOT")
+            result[3] = 'A';
+        var pRole = result[2].substring(0, 1).toUpperCase();
+        var sRole = result[3].substring(0, 1).toUpperCase();
+        var roleExpr = new RegExp('[TJMASF]');
+        var errorCheck = roleExpr.exec(pRole);
+        if(!errorCheck)
+        {
+            channel.send("Invalid primary role selection");
+            return 0;
+        } 
+        errorCheck = roleExpr.exec(sRole);
+        if(!errorCheck)
+        {
+            channel.send("Invalid secondary role selection");
+            return 0;
+        }
+        if(alreadyRegistered)
+        {
+            regPlayer.nameDisplay = summonerName;
+            regPlayer.rolePrimary = pRole; 
+            regPlayer.roleSecondary = sRole;
+            regPlayer.namePadded = regPlayer.nameDisplay.padEnd(30, ' ');
+        }
+        else
+        {
+            var p = new Player(summonerName, id, pRole, sRole);
+            playerList.push(p);
+            channel.send("Player " + summonerName + " registered!");
+            return 1;
+        }
+    }
+}
+
+function missingPlayer(channel, playerName)
+{
+    playerName = playerName.join(" ");
+    var missingPlayer = 0;
+    playerList.forEach(element => {
+        if(element.nameDisplay == playerName)
+            missingPlayer = element;
+    });
+    if(missingPlayer == 0)
+        channel.send("No registered player with summoner name " + playerName + " found.");
+    else
+    {
+        var success = false;
+        activeGames.forEach(element => {
+            var team = element.matchContainsPlayer(missingPlayer.discordId);
+            if(team != -1)
+            {
+                if(element.sparePlayers.length < 1)
+                {
+                    channel.send("No extra players signed up to replace missing player");
+                    return 0;
+                }
+                else
+                {
+                    var replacement = element.sparePlayers.pop();
+                    element.replacePlayer(missingPlayer.discordId, team, replacement);
+                    channel.send("Replaced missing player with " + replacement.nameDisplay + "\n" + 
+                                "Game is now -\n" + element.teamsString());
+                    success = true;
+                }
+            }
+        });
+        if(!success)
+            channel.send("Player " + playerName + " is not in an active game.");
+    }
+    return 0;
+}
+
+async function organiseGameTime(times)
 {
     if(times.length > 9)
         console.error("can't schedule more than 9 games in one message");
     var emojiList = ['1⃣', '2⃣', '3⃣', '4⃣', '5⃣', '6⃣', '7⃣', '8⃣', '9⃣'];
-    for(time in times)
-        logger.info(times[time]);
-    logger.info("gigantor memes" + announcementsChannelID);
 
-    // KILLLLLLL ME THIS PART WAS HARD TO GET RIGHT 
-    // these all return promises, the .react one doesn't give you the message back so you have to use the message from the outer scope
-
-    announcementsChannel.send("THE BEANS ARE FOUND");
-    var signupMessage = await announcementsChannel.send("SIGN UP HERE");
-    console.log(signupMessage.toString());
-    for(i = 0; i < times.length; i++)
+    var signupMessageText = "Check in for registered players\nReact with the corresponding number to check in for a game\n";
+    for(var i = 0; i < times.length; i++)
+    {
+        signupMessageText += "Game " + (i+1) + ": in " + times[i] + " minutes.\n";
+    }
+    signupMessageText += "Register with !register and record your win (only one needed per game) with !win";
+    var signupMessage = await announcementsChannel.send(signupMessageText);
+    activeCheckinMessages.push(signupMessage);
+    for(var i = 0; i < times.length; i++)
         await signupMessage.react(emojiList[i]);
+
+    times.sort(numbers); //numbers is a function which makes sort treat the array as numbers rather than strings
 
     // Now we're going to wait until it's time to read those reactions
     for(i = 0; i < times.length; i++)
     {
-        setTimeout(buildMatch, (times[i]*3*1000), signupMessage, emojiList[i]);
+        if(i == times.length-1)
+            setTimeout(buildMatch, (times[i]*60*1000), signupMessage, emojiList[i], true);
+        else
+            setTimeout(buildMatch, (times[i]*60*1000), signupMessage, emojiList[i], false);
     }
 }
 
 // We read the reactions on the message which tells us what players want to play in that match
-async function buildMatch(message, emoji)
+async function buildMatch(message, emoji, final, restarted=false)
 {
-    // maybe I shouldn't be using this as an array, it was a collection before (which extends map)
-    // maybe this would all be better as a collection.
-    var reactions = message.reactions;
     var roundPlayerList = [];
 
-    reactions.forEach((element) => addPlayerToRound(element, roundPlayerList, emoji));
+    message.reactions.forEach((element) => addPlayerToRound(element, roundPlayerList, emoji));
     
-    if((roundPlayerList.length % 10) >= 8)
-    {
-        announcementsChannel.send("Almost enough players for an extra game (need " + (10-(roundPlayerList.length % 10)) + "), waiting another 5 minutes to start");
-        await setTimeout(() => {}, 5*60*1000);
-        var roundPlayerList = [];
-        reactions.forEach((element) => addPlayerToRound(element, roundPlayerList, emoji));
-    }
     for(var i = 0; i < playerList.length; i++)
         roundPlayerList.push(playerList[i]); // This is just for testing, since I can't react to the message 30 times
 
+    if((roundPlayerList.length % 10) >= 8 && !restarted)
+    {
+        announcementsChannel.send("Almost enough players for an extra game (need " + (10-(roundPlayerList.length % 10)) + "), waiting another 5 minutes to start");
+        setTimeout(buildMatch, 5*60*1000, message, emoji, final, restarted=true);
+        return 0;
+    }
+
     var numOfGames = Math.floor(roundPlayerList.length / 10);
     roundPlayerList.sort(byGamesMissed);
+    var sparePlayers = [];
     for(var i = roundPlayerList.length - 1; i >= numOfGames * 10; i--)
     {
         roundPlayerList[i].gamesMissed++;
+        sparePlayers.push(roundPlayerList[i]);
         roundPlayerList.pop();
     }
 
     if(roundPlayerList.length % 10 != 0)
-        console.error( roundPlayerList.length + "SOMETHING WENT HORRIBLY WRONG");
+        console.error("SOMETHING WENT HORRIBLY WRONG"); //sanity check
 
+    if(numOfGames == 0)
+    {
+        announcementsChannel.send("Not enough players for any games.");
+        return 0;
+    }
     shuffle(roundPlayerList);
     const numOfTeams = numOfGames * 2;
     var teams = [];
@@ -299,19 +502,30 @@ async function buildMatch(message, emoji)
         var temp = new Team();
         temp.autofills = 0;
         temp.secondaries = 0;
-        await teams.push(temp);
+        teams.push(temp);
     }
     matchmake(roundPlayerList, teams);
 
     teams.sort(byMMR);
-
     announcementsChannel.send("We have numbers for " + (numOfGames) + " games!");
+    var gameMessage = "";
     for(var i = 0; i < numOfGames; i++)
     {
-        var gameMessage = "GAME " + (i+1) + ": " + teams[i*2].getMMR() + " MMR vs " + teams[(i*2)+1].getMMR() + " MMR \n";
-        //console.log(teams[i*2] + " \n " + teams[(i*2)+1])
-        var thisGame = new Match(teams[i*2], teams[(i*2)+1]);
-        await announcementsChannel.send(gameMessage + thisGame.teamsString() + "\n\n\n");
+        gameMessage += "MATCH " + (i+1) + ": ";
+        var thisGame = new Match(teams[i*2], teams[(i*2)+1], sparePlayers);
+        gameMessage += thisGame.teamsString() + "\n\n";
+        activeGames.push(thisGame);
+    }
+    await announcementsChannel.send(gameMessage);
+    if(final)
+    {
+        activeCheckinMessages.forEach((element, index) => {
+
+            if(element.id == message.id)
+            {
+                activeCheckinMessages.splice(index, 1);
+            }
+        });
     }
 }
 
@@ -320,7 +534,7 @@ function addPlayerToRound(thisReaction, list, thisGame)
     if(thisReaction._emoji.name == thisGame)
     {
         thisReaction.users.forEach(element => {
-            var playerIndex = playerListContains(playerList, element.username);
+            var playerIndex = playerListContains(element.id);
             if(playerIndex != -1)
             {
                 list.push(playerList[playerIndex]);
@@ -328,7 +542,7 @@ function addPlayerToRound(thisReaction, list, thisGame)
         });
     }
 }
-/*  
+/*
     ----------------------------------------MATCHMAKING FUNCTIONS-------------------------------------------
     Anything to do with matchmaking goes here 
     --------------------------------------------------------------------------------------------------------
@@ -472,6 +686,81 @@ function placeInTeam(player, teamList)
     return 0;
 }
 
+function resolveMatch(channel, id)
+{
+    for(var i = 0; i < activeGames.length; i++)
+    {
+        var playerTeam = activeGames[i].matchContainsPlayer(id);
+        if(playerTeam == 1)
+        {
+            changeMMR(activeGames[i].blueTeam, activeGames[i].redTeam);
+            activeGames.splice(i, 1);
+            return 1;
+        }
+        if(playerTeam == 2)
+        {
+            changeMMR(activeGames[i].redTeam, activeGames[i].blueTeam);
+            activeGames.splice(i, 1);
+            return 1;
+        }
+    }
+    channel.send("You're not in an active game");
+}
+
+// Change the rating of each player in a match (and lower their k-factors if relevant)
+function changeMMR(winningTeam, losingTeam)
+{
+    winningTeam = winningTeam.toArray();
+    losingTeam = losingTeam.toArray(); // This code is all much cleaner if teams are just arrays of players
+
+    var winningTeamTotalMMR = 0;
+    var losingTeamTotalMMR = 0;
+    for(var i = 0; i < 5; i++)
+    {
+        winningTeamTotalMMR += winningTeam[i].mmr;
+        losingTeamTotalMMR += losingTeam[i].mmr;
+    }
+
+    for(var i = 0; i < winningTeam.length; i++)
+    {
+        winningTeam[i].wins++;
+        var opponentMMR = losingTeamTotalMMR - (winningTeamTotalMMR - winningTeam[i].mmr);
+        var prob = (1.0 / (1.0 + Math.pow(10, ((winningTeam[i].mmr-opponentMMR) / 400)))); // Probability of winning
+        console.log("win + " + (winningTeam[i].kFactor*(1 - prob)) + "prob + " + (prob))
+        winningTeam[i].mmr = winningTeam[i].mmr + winningTeam[i].kFactor*(1 - prob);   // Elo calculation
+
+        var winrate = winningTeam[i].wins/winningTeam[i].losses;
+        if((winningTeam[i].kFactor != 40) && (winrate < 0.7) && (winrate > 0.3))
+        {
+            winningTeam[i].kFactor = winningTeam[i].kFactor*0.9; // Up system's confidence when winrate is close to 50%
+            if(winningTeam[i].kFactor <= 42)
+                winningTeam[i].kFactor = 40; // Set to a stable number when low enough
+        }
+        else if(winningTeam[i].kFactor != 40 && winningTeam[i].kFactor < 105)
+            winningTeam[i].kFactor = winningTeam[i].kFactor*1.1; // Lower confidence otherwise
+    }
+
+    for(var i = 0; i < losingTeam.length; i++)
+    {
+        losingTeam[i].losses++;
+        var opponentMMR = winningTeamTotalMMR - (losingTeamTotalMMR - losingTeam[i].mmr);
+        var prob = (1.0 / (1.0 + Math.pow(10, ((losingTeam[i].mmr-opponentMMR) / 400)))); // probability of winning
+        console.log("loss + " + (losingTeam[i].kFactor*(0 - prob)) + "prob + " + (prob));
+        losingTeam[i].mmr = losingTeam[i].mmr + losingTeam[i].kFactor*(0 - prob); // Elo calculation
+
+        var winrate = losingTeam[i].wins/losingTeam[i].losses;
+        if((losingTeam[i].kFactor != 40) && (winrate < 0.7) && (winrate > 0.3))
+        {
+            losingTeam[i].kFactor = losingTeam[i].kFactor*0.9; // Up system's confidence when winrate is close to 50%
+            if(losingTeam[i].kFactor <= 42)
+                losingTeam[i].kFactor = 40;
+        }
+        else if(losingTeam[i].kFactor != 40 && losingTeam[i].kFactor < 105)
+            losingTeam[i].kFactor = losingTeam[i].kFactor*1.1; // Lower confidence otherwise
+    }
+    writePlayerList();
+}
+
 /*  
     ----------------------------------------HELPERS---------------------------------------------------------
     These functions are just small tasks to keep the code cleaner
@@ -530,13 +819,18 @@ function byGamesMissed(a, b)
     return (a.gamesMissed < b.gamesMissed)?(1):(-1);
 }
 
+function numbers(a, b)
+{
+    return (a > b)?(1):(-1);
+}
+
 // this function is very specific, maybe this part of the code could be written better
-function playerListContains(listToCheck, username)
+function playerListContains(id)
 {
     var contains = -1;
-    listToCheck.forEach((element, index) => 
+    playerList.forEach((element, index) => 
         {
-            if(element.nameDiscord == username)
+            if(element.discordId == id)
                 contains = index;
         });
     return contains;
