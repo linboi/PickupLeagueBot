@@ -4,7 +4,8 @@ var fs = require('fs');
 
 // -----CONSTANTS-----
 
-const gameDays = [ 3]; // 0 is sunday, 1 is monday etc
+const VERSION = '1.1.0';
+const gameDays = [3]; // 0 is sunday, 1 is monday etc
 const signUpTime = 19;
 const gameTimes = [45, 105]; // minutes from signup time to team announcement
 
@@ -198,7 +199,7 @@ bot.login(auth.token);
 bot.once('ready', function (evt) {
     readPlayerList();
     announcementsChannel = bot.channels.get("591003151176564746");
-    console.log("Bot connected.");
+    console.log("Bot connected. Version: " + VERSION);
     repeatedlyStartGames(); // This starts a recursive function which will start a game at the next game time, then call itself.
 });
 
@@ -254,7 +255,7 @@ bot.on('messageReactionAdd', (MessageReaction, user) =>
             if(!playerIsRegistered)
             {
                 MessageReaction.remove(user);
-                user.send("You need to register, son");
+                user.send("You must register using '!register [summonername] [primaryrole]/[secondaryrole]' before you can check-in to a game.");
             }
         }
     });
@@ -381,12 +382,15 @@ function addNewPlayer(text, id, channel){
             regPlayer.rolePrimary = pRole; 
             regPlayer.roleSecondary = sRole;
             regPlayer.namePadded = regPlayer.nameDisplay.padEnd(30, ' ');
+            writePlayerList()
+            return 1;
         }
         else
         {
             var p = new Player(summonerName, id, pRole, sRole);
             playerList.push(p);
             channel.send("Player " + summonerName + " registered!");
+            writePlayerList();
             return 1;
         }
     }
@@ -420,6 +424,7 @@ function missingPlayer(channel, playerName)
                     element.replacePlayer(missingPlayer.discordId, team, replacement);
                     channel.send("Replaced missing player with " + replacement.nameDisplay + "\n" + 
                                 "Game is now -\n" + element.teamsString());
+                    replacement.gamesMissed--;
                     success = true;
                 }
             }
@@ -441,7 +446,7 @@ async function organiseGameTime(times)
     {
         signupMessageText += "Game " + (i+1) + ": in " + times[i] + " minutes.\n";
     }
-    signupMessageText += "Register with !register and record your win (only one needed per game) with !win";
+    signupMessageText += "After a win, post a screenshot of the victory and type !win (only one player on the winning team must do this).";
     var signupMessage = await announcementsChannel.send(signupMessageText);
     activeCheckinMessages.push(signupMessage);
     for(var i = 0; i < times.length; i++)
@@ -465,9 +470,6 @@ async function buildMatch(message, emoji, final, restarted=false)
     var roundPlayerList = [];
 
     message.reactions.forEach((element) => addPlayerToRound(element, roundPlayerList, emoji));
-    
-    for(var i = 0; i < playerList.length; i++)
-        roundPlayerList.push(playerList[i]); // This is just for testing, since I can't react to the message 30 times
 
     if((roundPlayerList.length % 10) >= 8 && !restarted)
     {
@@ -695,12 +697,14 @@ function resolveMatch(channel, id)
         {
             changeMMR(activeGames[i].blueTeam, activeGames[i].redTeam);
             activeGames.splice(i, 1);
+            channel.send("Registered a win for blue team");
             return 1;
         }
         if(playerTeam == 2)
         {
             changeMMR(activeGames[i].redTeam, activeGames[i].blueTeam);
             activeGames.splice(i, 1);
+            channel.send("Registered a win for red team");
             return 1;
         }
     }

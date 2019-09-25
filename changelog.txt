@@ -1,2 +1,7 @@
+1.1.0 - 25/09/2019
+Remove testing code.
+Write player list after registration.
+Improve various messages sent by bot.
+
 1.0.0 - 24/09/2019
 Initial release
