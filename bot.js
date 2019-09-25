@@ -4,7 +4,7 @@ var fs = require('fs');
 
 // -----CONSTANTS-----
 
-const VERSION = '1.1.0';
+const VERSION = '1.1.1';
 const gameDays = [3]; // 0 is sunday, 1 is monday etc
 const signUpTime = 19;
 const gameTimes = [45, 105]; // minutes from signup time to team announcement
@@ -200,7 +200,10 @@ bot.once('ready', function (evt) {
     readPlayerList();
     announcementsChannel = bot.channels.get("591003151176564746");
     console.log("Bot connected. Version: " + VERSION);
-    repeatedlyStartGames(); // This starts a recursive function which will start a game at the next game time, then call itself.
+    var ms = msToNextGame();
+    console.log(ms);
+    setTimeout(organiseGameTime, ms, gameTimes);
+    //repeatedlyStartGames(); // This starts a recursive function which will start a game at the next game time, then call itself.
 });
 
 bot.on('message', message => {
@@ -270,6 +273,7 @@ function repeatedlyStartGames()
 
 function printStandings(channel, page)
 {
+    channel.send("test");
     if(!page)
         page = 1;
     playerList.sort(byMMR);
