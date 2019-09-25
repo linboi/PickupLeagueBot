@@ -6,7 +6,7 @@ var fs = require('fs');
 
 const VERSION = '1.1.1';
 const gameDays = [3]; // 0 is sunday, 1 is monday etc
-const signUpTime = 19;
+const signUpTime = 20;
 const gameTimes = [45, 105]; // minutes from signup time to team announcement
 
 // The amount of MMR lower someone should be considered if they're on a secondary role/autofilled
