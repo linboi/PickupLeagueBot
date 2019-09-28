@@ -198,7 +198,7 @@ bot.login(auth.token);
 
 bot.once('ready', function (evt) {
     readPlayerList();
-    announcementsChannel = bot.channels.get("591003151176564746");
+    announcementsChannel = bot.channels.get("608298295202414595");
     console.log("Bot connected. Version: " + VERSION);
     var ms = msToNextGame();
     console.log(ms);
@@ -216,6 +216,7 @@ bot.on('message', message => {
 
         switch(cmd) {			
 			case 'standings':
+                console.log("hello");
                 printStandings(message.channel, args[0]);
                 break;
             case 'roles':
@@ -231,6 +232,10 @@ bot.on('message', message => {
                 break;
             case 'missing':
                 missingPlayer(message.channel, args);
+                break;
+            case 'inputresult':
+                console.log("hello");
+                manualResult(message.channel, args);
                 break;
             case 'quit':
                 writePlayerList();
@@ -273,7 +278,6 @@ function repeatedlyStartGames()
 
 function printStandings(channel, page)
 {
-    channel.send("test");
     if(!page)
         page = 1;
     playerList.sort(byMMR);
@@ -291,7 +295,7 @@ function printStandings(channel, page)
 
 function readPlayerList()
 {
-    fs.readFile('players.txt', 'utf8', (err, fd) => {
+    fs.readFile('fakePlayerData.txt', 'utf8', (err, fd) => {
         if (err) {
             if (err.code === 'ENOENT') {
                 console.error('players.txt does not exist in this directory');
@@ -304,7 +308,7 @@ function readPlayerList()
         for(i = 0; i < lines.length; i++)
         {
             var currentPlayerLine = lines[i].trim();
-            var expr = new RegExp('(.+) ([0-9]+) ([F|T|J|M|A|S])/([F|T|J|M|A|S]) ([0-9]+) ([0-9]+)\-([0-9]+) ([0-9]+) ([0-9]).*$');
+            var expr = new RegExp('(.+) ([0-9]+) ([F|T|J|M|A|S])/([F|T|J|M|A|S]) ([0-9]+\.?[0-9]*) ([0-9]+)\-([0-9]+) ([0-9]+) ([0-9]+\.?[0-9]*).*$');
             var result = expr.exec(currentPlayerLine);
             if(!result)
             {
@@ -313,8 +317,8 @@ function readPlayerList()
             }
             else
             {
-                temp = new Player(result[1], parseInt(result[2]), result[3], result[4], parseInt(result[5]), wins=parseInt(result[6]), losses=parseInt(result[7]),
-                                    gamesMissed=parseInt(result[8]), kFactor=parseInt(result[9]));
+                temp = new Player(result[1], parseInt(result[2]), result[3], result[4], parseFloat(result[5]), wins=parseInt(result[6]), losses=parseInt(result[7]),
+                                    gamesMissed=parseInt(result[8]), kFactor=parseFloat(result[9]));
                 playerList.push(temp);
             }
         }
@@ -347,7 +351,7 @@ function addNewPlayer(text, id, channel){
     var expr = new RegExp('(.+) (.+)/(.+)'); // (^[0-9\\p{L} _\\.]+) < riot say this is RegExp for a valid summoner name but it didn't work for me
     var result = expr.exec(text);
     if(!result)
-        channel.send("Error registering player. Please use the following format:\n```!register summonerName Top/Fill```");
+        channel.send("Error registering player. Please use the following format:\n```!register summonerName primary/secondary```");
     else
     {
         var alreadyRegistered = false;
@@ -548,6 +552,43 @@ function addPlayerToRound(thisReaction, list, thisGame)
         });
     }
 }
+
+async function manualResult(channel, players)
+{
+    players = players.join("");
+    players = players.split("'");
+    if(players.length != 10)
+    {
+        channel.send("Should input 10 usernames");
+        return 0;
+    }
+    var overallSuccess = true;
+    var playerObjects = [];
+    players.forEach(element => {
+        var thisPlayerSuccess = false;
+        for(var i = 0; i < playerList.length; i++)
+        {
+            if(playerList[i].nameDisplay==element)
+            {
+                playerObjects.push(playerList[i]);
+                return;
+            }
+        }
+        channel.send("player " + element + " not found");
+        overallSuccess = false;
+    });
+    if(!overallSuccess)
+        return 0;
+
+    for(var i = 0; i < playerObjects.length; i++)
+        console.log(playerObjects[i]);
+    var blue = new Team(playerObjects[0], playerObjects[1], playerObjects[2], playerObjects[3], playerObjects[4]);
+    var red = new Team(playerObjects[5], playerObjects[6], playerObjects[7], playerObjects[8], playerObjects[9]);
+    var thisMatch = new Match(blue, red, []);
+    await channel.send("Counting a blue side win for this game " + thisMatch.teamsString());
+    changeMMR(thisMatch.blueTeam, thisMatch.redTeam);
+}
+
 /*
     ----------------------------------------MATCHMAKING FUNCTIONS-------------------------------------------
     Anything to do with matchmaking goes here 
@@ -744,7 +785,7 @@ function changeMMR(winningTeam, losingTeam)
             if(winningTeam[i].kFactor <= 42)
                 winningTeam[i].kFactor = 40; // Set to a stable number when low enough
         }
-        else if(winningTeam[i].kFactor != 40 && winningTeam[i].kFactor < 105)
+        else if(winningTeam[i].kFactor != 40 && winningTeam[i].kFactor < 85)
             winningTeam[i].kFactor = winningTeam[i].kFactor*1.1; // Lower confidence otherwise
     }
 
@@ -763,7 +804,7 @@ function changeMMR(winningTeam, losingTeam)
             if(losingTeam[i].kFactor <= 42)
                 losingTeam[i].kFactor = 40;
         }
-        else if(losingTeam[i].kFactor != 40 && losingTeam[i].kFactor < 105)
+        else if(losingTeam[i].kFactor != 40 && losingTeam[i].kFactor < 85)
             losingTeam[i].kFactor = losingTeam[i].kFactor*1.1; // Lower confidence otherwise
     }
     writePlayerList();

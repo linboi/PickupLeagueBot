@@ -1,3 +1,7 @@
+1.1.1 - 28/09/2019
+Fix file reading
+Remove recursion
+
 1.1.0 - 25/09/2019
 Remove testing code.
 Write player list after registration.
