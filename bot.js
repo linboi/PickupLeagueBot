@@ -293,7 +293,7 @@ function printStandings(channel, page)
 
 function readPlayerList()
 {
-    fs.readFile('fakePlayerData.txt', 'utf8', (err, fd) => {
+    fs.readFile('players.txt', 'utf8', (err, fd) => {
         if (err) {
             if (err.code === 'ENOENT') {
                 console.error('players.txt does not exist in this directory');
