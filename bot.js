@@ -216,7 +216,6 @@ bot.on('message', message => {
 
         switch(cmd) {			
 			case 'standings':
-                console.log("hello");
                 printStandings(message.channel, args[0]);
                 break;
             case 'roles':
@@ -234,7 +233,6 @@ bot.on('message', message => {
                 missingPlayer(message.channel, args);
                 break;
             case 'inputresult':
-                console.log("hello");
                 manualResult(message.channel, args);
                 break;
             case 'quit':
