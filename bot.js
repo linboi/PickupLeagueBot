@@ -198,7 +198,7 @@ bot.login(auth.token);
 
 bot.once('ready', function (evt) {
     readPlayerList();
-    announcementsChannel = bot.channels.get("608298295202414595");
+    announcementsChannel = bot.channels.get("591003151176564746");
     console.log("Bot connected. Version: " + VERSION);
     var ms = msToNextGame();
     console.log(ms);
