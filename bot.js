@@ -8,6 +8,7 @@ const VERSION = '1.1.1';
 const gameDays = [3]; // 0 is sunday, 1 is monday etc
 const signUpTime = 20;
 const gameTimes = [45, 105]; // minutes from signup time to team announcement
+const adminList = [225650967058710529];
 
 // The amount of MMR lower someone should be considered if they're on a secondary role/autofilled
 const secondariesPenalty = 5;
@@ -45,15 +46,15 @@ class Player
 
 class Team
 {
-    constructor()
+    constructor(top=0, jung=0, mid=0, adc=0, supp=0)
     {
-        var top = 0;
-        var jung = 0;
-        var mid = 0;
-        var adc = 0;
-        var supp = 0;
-        var secondaries = 0;
-        var autofills = 0;
+        this.top = top;
+        this.jung = jung;
+        this.mid = mid;
+        this.adc = adc;
+        this.supp = supp;
+        this.secondaries = 0;
+        this.autofills = 0;
     }
 
     getMMR()
@@ -207,8 +208,42 @@ bot.once('ready', function (evt) {
 });
 
 bot.on('message', message => {
-    // The bot will listen for messages that will start with `!`
-    if (message.content.substring(0, 1) == '!') {
+    // The bot will listen for messages that will start with `!`, '!admin' is a specially treated case
+    if(message.content.substring(0, 6) == '!admin')
+    {
+        var isAdmin = false;
+        adminList.forEach(element => {
+            if(message.author.id == element)
+                isAdmin = true;
+        });
+        if(!isAdmin)
+        {
+            message.channel.send("User is not an admin.");
+            return;
+        }
+        var expr = new RegExp('!admin (.+)? \'(.*)\'');
+        var result = expr.exec(message.content);
+        if(!result)
+        {
+            message.channel.send("Badly formed command");
+        }
+        var cmd = result[1];
+        if(result[2])
+        {
+            var args = result[2];
+        }
+        console.log(cmd);
+        switch(cmd)
+        {
+            case 'inputresult':
+                manualResult(message.channel, args);
+                break;
+            default:
+                message.channel.send("Unrecognised admin command");
+
+        }
+    }
+    else if (message.content.substring(0, 1) == '!') {
         var args = message.content.substring(1).split(' ');
         var cmd = args[0].toLowerCase();
        
@@ -221,10 +256,6 @@ bot.on('message', message => {
             case 'roles':
             case 'register':
                 addNewPlayer(args, message.author.id, message.channel);
-                break;
-            case 'setAnnouncements':
-                announcementsChannelID = message.channel;
-                channel.send('Announcements channel set!');
                 break;
             case 'win':
                 resolveMatch(message.channel, message.author.id);
@@ -553,7 +584,6 @@ function addPlayerToRound(thisReaction, list, thisGame)
 
 async function manualResult(channel, players)
 {
-    players = players.join("");
     players = players.split("'");
     if(players.length != 10)
     {
@@ -767,16 +797,17 @@ function changeMMR(winningTeam, losingTeam)
         winningTeamTotalMMR += winningTeam[i].mmr;
         losingTeamTotalMMR += losingTeam[i].mmr;
     }
+    console.log(winningTeamTotalMMR + " vs " + losingTeamTotalMMR);
 
     for(var i = 0; i < winningTeam.length; i++)
     {
         winningTeam[i].wins++;
         var opponentMMR = losingTeamTotalMMR - (winningTeamTotalMMR - winningTeam[i].mmr);
-        var prob = (1.0 / (1.0 + Math.pow(10, ((winningTeam[i].mmr-opponentMMR) / 400)))); // Probability of winning
+        var prob = (1.0 / (1.0 + Math.pow(10, (((winningTeam[i].mmr-opponentMMR)/5) / 400)))); // Probability of winning
         console.log("win + " + (winningTeam[i].kFactor*(1 - prob)) + "prob + " + (prob))
         winningTeam[i].mmr = winningTeam[i].mmr + winningTeam[i].kFactor*(1 - prob);   // Elo calculation
 
-        var winrate = winningTeam[i].wins/winningTeam[i].losses;
+        var winrate = winningTeam[i].wins/(winningTeam[i].losses+winningTeam[i].wins);
         if((winningTeam[i].kFactor != 40) && (winrate < 0.7) && (winrate > 0.3))
         {
             winningTeam[i].kFactor = winningTeam[i].kFactor*0.9; // Up system's confidence when winrate is close to 50%
@@ -791,11 +822,11 @@ function changeMMR(winningTeam, losingTeam)
     {
         losingTeam[i].losses++;
         var opponentMMR = winningTeamTotalMMR - (losingTeamTotalMMR - losingTeam[i].mmr);
-        var prob = (1.0 / (1.0 + Math.pow(10, ((losingTeam[i].mmr-opponentMMR) / 400)))); // probability of winning
+        var prob = (1.0 / (1.0 + Math.pow(10, (((losingTeam[i].mmr-opponentMMR)/5) / 400)))); // probability of winning
         console.log("loss + " + (losingTeam[i].kFactor*(0 - prob)) + "prob + " + (prob));
         losingTeam[i].mmr = losingTeam[i].mmr + losingTeam[i].kFactor*(0 - prob); // Elo calculation
 
-        var winrate = losingTeam[i].wins/losingTeam[i].losses;
+        var winrate = losingTeam[i].wins/(losingTeam[i].losses+losingTeam[i].wins);
         if((losingTeam[i].kFactor != 40) && (winrate < 0.7) && (winrate > 0.3))
         {
             losingTeam[i].kFactor = losingTeam[i].kFactor*0.9; // Up system's confidence when winrate is close to 50%
