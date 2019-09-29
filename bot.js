@@ -24,7 +24,7 @@ var activeCheckinMessages = [];
 // Class to represent a player
 class Player 
 {
-    constructor(nameDisplay, discordId, rolePrimary, roleSecondary, mmr=1200, wins=0, losses=0, gamesMissed=0, kFactor=80)
+    constructor(nameDisplay, discordId, rolePrimary, roleSecondary, mmr=1200, wins=0, losses=0, gamesMissed=0, kFactor=100)
     {
         this.nameDisplay = nameDisplay;
         this.discordId = discordId;
