@@ -1,3 +1,7 @@
+1.2.0 - 29/09/2019
+Change MMR calculations
+Add admin only commands
+
 1.1.1 - 28/09/2019
 Fix file reading
 Remove recursion
