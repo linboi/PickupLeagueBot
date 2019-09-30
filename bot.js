@@ -7,8 +7,8 @@ var fs = require('fs');
 const VERSION = '1.1.1';
 const gameDays = [3]; // 0 is sunday, 1 is monday etc
 const signUpTime = 20;
-const gameTimes = [45, 105]; // minutes from signup time to team announcement
-const adminList = [225650967058710529];
+const gameTimes = [50, 110]; // minutes from signup time to team announcement
+const adminList = [225650967058710529, 91114718902636544];
 
 // The amount of MMR lower someone should be considered if they're on a secondary role/autofilled
 const secondariesPenalty = 5;
@@ -34,7 +34,7 @@ class Player
         this.wins = wins;
         this.losses = losses;
         this.gamesMissed = gamesMissed;
-        this.namePadded = nameDisplay.padEnd(30, ' ');
+        this.namePadded = nameDisplay.padEnd(23, ' ');
         this.kFactor = kFactor;
     }
 
@@ -238,6 +238,9 @@ bot.on('message', message => {
             case 'inputresult':
                 manualResult(message.channel, args);
                 break;
+            case 'write':
+                writePlayerList();
+                break;
             default:
                 message.channel.send("Unrecognised admin command");
 
@@ -251,6 +254,9 @@ bot.on('message', message => {
 
         switch(cmd) {			
 			case 'standings':
+                printPersonalStandings(message.channel, message.author.id);
+                break;
+            case 'fullstandings':
                 printStandings(message.channel, args[0]);
                 break;
             case 'roles':
@@ -262,12 +268,6 @@ bot.on('message', message => {
                 break;
             case 'missing':
                 missingPlayer(message.channel, args);
-                break;
-            case 'inputresult':
-                manualResult(message.channel, args);
-                break;
-            case 'quit':
-                writePlayerList();
                 break;
          }
      }
@@ -320,6 +320,43 @@ function printStandings(channel, page)
     }
     message += '```';
     channel.send(message);
+}
+
+function printPersonalStandings(channel, id)
+{
+    var foundAt = -1;
+    playerList.sort(byMMR);
+    playerList.forEach((element, index) =>{
+        if(element.discordId == id)
+            foundAt = index;
+    })
+    if(foundAt < 10)
+        printStandings(channel, 1);
+    else
+    {
+        var message = '```';
+        for(var i = 0; i < 5 && i < playerList.length; i++)
+        {
+            var intMMR = Math.trunc(playerList[i].mmr);
+            message += ((i+1).toString().padStart(3, ' ')) + '. ' + playerList[i].namePadded 
+                + intMMR.toString().padEnd(4, ' ') 
+                + ' (' + playerList[i].wins + '-' + playerList[i].losses + ')\n';
+        }
+        message += '^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n'/*=======================================\n*/+'vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n';
+        for(var i = foundAt-5; i <= foundAt+5 && i < playerList.length; i++)
+        {
+            if(i == foundAt)
+                message += '---------------------------------------\n';
+            var intMMR = Math.trunc(playerList[i].mmr);
+            message += ((i+1).toString().padStart(3, ' ')) + '. ' + playerList[i].namePadded 
+                + intMMR.toString().padEnd(4, ' ') 
+                + ' (' + playerList[i].wins + '-' + playerList[i].losses + ')\n';
+            if(i == foundAt)
+                message += '---------------------------------------\n';
+        }
+        message += '```';
+        channel.send(message);
+    }
 }
 
 function readPlayerList()
