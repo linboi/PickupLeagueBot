@@ -1,3 +1,12 @@
+1.3.0 - 30/09/2019
+Improve standings common use case
+Replace standings with fullstandings
+Quit is admin only, and renamed to write
+
+1.2.0 - 29/09/2019
+Change MMR calculations
+Add admin only commands
+
 1.1.1 - 28/09/2019
 Fix file reading
 Remove recursion
