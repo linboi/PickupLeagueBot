@@ -7,7 +7,7 @@ var fs = require('fs');
 const VERSION = '1.3.1';
 const gameDays = [3]; // 0 is sunday, 1 is monday etc
 const signUpTime = 20;
-const gameTimes = [1, 110]; // minutes from signup time to team announcement
+const gameTimes = [50, 110]; // minutes from signup time to team announcement
 const adminList = [225650967058710529, 91114718902636544];
 const channelsToListenIn = [628952731310358528, 591003151176564746, 608298295202414595];
 
