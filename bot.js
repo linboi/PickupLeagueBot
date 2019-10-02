@@ -5,10 +5,11 @@ var fs = require('fs');
 // -----CONSTANTS-----
 
 const VERSION = '1.3.0';
-const gameDays = [1, 3]; // 0 is sunday, 1 is monday etc
+const gameDays = [3]; // 0 is sunday, 1 is monday etc
 const signUpTime = 20;
 const gameTimes = [50, 110]; // minutes from signup time to team announcement
 const adminList = [225650967058710529, 91114718902636544];
+const channelsToListenIn = [628952731310358528, 591003151176564746, 608298295202414595];
 
 // The amount of MMR lower someone should be considered if they're on a secondary role/autofilled
 const secondariesPenalty = 5;
@@ -167,7 +168,6 @@ class Match
                     this.blueTeam.supp = replacement;
                     return 1;
             }
-                
         }
         else if(team == 2)
         {
@@ -208,6 +208,13 @@ bot.once('ready', function (evt) {
 });
 
 bot.on('message', message => {
+    var isInListeningChannel = false;
+    channelsToListenIn.forEach(element => {
+        if(element == message.channel.id)
+            isInListeningChannel = true;
+    });
+    if(!isInListeningChannel)
+        return;
     // The bot will listen for messages that will start with `!`, '!admin' is a specially treated case
     if(message.content.substring(0, 6) == '!admin')
     {
@@ -269,6 +276,9 @@ bot.on('message', message => {
             case 'missing':
                 missingPlayer(message.channel, args);
                 break;
+            case 'replace':
+                missingPlayer(message.channel, args, true);
+                break;
          }
      }
 });
@@ -292,7 +302,8 @@ bot.on('messageReactionAdd', (MessageReaction, user) =>
             if(!playerIsRegistered)
             {
                 MessageReaction.remove(user);
-                user.send("You must register using '!register [summonername] [primaryrole]/[secondaryrole]' before you can check-in to a game.");
+                user.send("You must register using '!register [summonername] [primaryrole]/[secondaryrole]' before you can check-in to a game.\n" +
+                "**Your check-in has been removed, please check in again after registering**");
             }
         }
     });
@@ -470,9 +481,36 @@ function addNewPlayer(text, id, channel){
     }
 }
 
-function missingPlayer(channel, playerName)
+function missingPlayer(channel, playerName, includeReplacement=false)
 {
+    var replacement = 0;
     playerName = playerName.join(" ");
+    if(includeReplacement)
+    {
+        // split the player name into the missing player and the replacement
+        var missAndReplace = playerName.split(",");
+        if(!missAndReplace[1] || !missAndReplace[0])
+        {
+            channel.send("Bad arguments");
+            return;
+        }
+        playerName = missAndReplace[0].trim();
+        replacementName = missAndReplace[1].trim();
+        console.log(playerName + " and " + replacementName);
+        var found = false;
+        playerList.forEach(element => {
+            if(element.nameDisplay == replacementName)
+            {
+                replacement = element;
+                found = true;
+            }
+        });
+        if(!found)
+        {
+            channel.send("Player " + replacementName + " not found in registered list");
+            return;
+        }
+    }
     var missingPlayer = 0;
     playerList.forEach(element => {
         if(element.nameDisplay == playerName)
@@ -494,7 +532,8 @@ function missingPlayer(channel, playerName)
                 }
                 else
                 {
-                    var replacement = element.sparePlayers.pop();
+                    if(!includeReplacement)
+                        replacement = element.sparePlayers.pop();
                     element.replacePlayer(missingPlayer.discordId, team, replacement);
                     channel.send("Replaced missing player with " + replacement.nameDisplay + "\n" + 
                                 "Game is now -\n" + element.teamsString());
@@ -554,6 +593,9 @@ async function buildMatch(message, emoji, final, restarted=false)
 
     var numOfGames = Math.floor(roundPlayerList.length / 10);
     roundPlayerList.sort(byGamesMissed);
+    //roundPlayerList.forEach(element => {
+        //bot.users.get(element.discordId).send("You've got a game of pickup league starting. See your teammmates and enemies in the announcements channel.");
+    //});
     var sparePlayers = [];
     for(var i = roundPlayerList.length - 1; i >= numOfGames * 10; i--)
     {
@@ -580,6 +622,7 @@ async function buildMatch(message, emoji, final, restarted=false)
         temp.secondaries = 0;
         teams.push(temp);
     }
+    
     matchmake(roundPlayerList, teams);
 
     teams.sort(byMMR);
@@ -587,7 +630,7 @@ async function buildMatch(message, emoji, final, restarted=false)
     var gameMessage = "";
     for(var i = 0; i < numOfGames; i++)
     {
-        gameMessage += "MATCH " + (i+1) + ": ";
+        gameMessage += "MATCH " + (i+1) + ":\n";
         var thisGame = new Match(teams[i*2], teams[(i*2)+1], sparePlayers);
         gameMessage += thisGame.teamsString() + "\n\n";
         activeGames.push(thisGame);
@@ -841,7 +884,7 @@ function changeMMR(winningTeam, losingTeam)
         winningTeam[i].wins++;
         var opponentMMR = losingTeamTotalMMR - (winningTeamTotalMMR - winningTeam[i].mmr);
         var prob = (1.0 / (1.0 + Math.pow(10, (((winningTeam[i].mmr-opponentMMR)/5) / 400)))); // Probability of winning
-        console.log("win + " + (winningTeam[i].kFactor*(1 - prob)) + "prob + " + (prob))
+        console.log("win + " + (winningTeam[i].kFactor*(1 - prob)) + "prob + " + (prob));
         winningTeam[i].mmr = winningTeam[i].mmr + winningTeam[i].kFactor*(1 - prob);   // Elo calculation
 
         var winrate = winningTeam[i].wins/(winningTeam[i].losses+winningTeam[i].wins);
