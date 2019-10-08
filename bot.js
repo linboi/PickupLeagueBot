@@ -4,7 +4,7 @@ var fs = require('fs');
 
 // -----CONSTANTS-----
 
-const VERSION = '1.3.0';
+const VERSION = '1.3.1';
 const gameDays = [1, 3]; // 0 is sunday, 1 is monday etc
 const signUpTime = 20;
 const gameTimes = [50, 110]; // minutes from signup time to team announcement
