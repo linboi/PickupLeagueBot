@@ -279,6 +279,9 @@ bot.on('message', message => {
             case 'replace':
                 missingPlayer(message.channel, args, true);
                 break;
+            case 'version':
+                message.channel.send("Bot running version: " + VERSION);
+                break;
          }
      }
 });
