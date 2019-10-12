@@ -4,8 +4,8 @@ var fs = require('fs');
 
 // -----CONSTANTS-----
 
-const VERSION = '1.3.2';
-const gameDays = [1, 3]; // 0 is sunday, 1 is monday etc
+const VERSION = '1.3.3';
+const gameDays = [6, 3]; // 0 is sunday, 1 is monday etc
 const signUpTime = 20;
 const gameTimes = [50, 110]; // minutes from signup time to team announcement
 const adminList = [225650967058710529, 91114718902636544];
@@ -469,13 +469,19 @@ function addNewPlayer(text, id, channel){
             regPlayer.nameDisplay = summonerName;
             regPlayer.rolePrimary = pRole; 
             regPlayer.roleSecondary = sRole;
-            regPlayer.namePadded = regPlayer.nameDisplay.padEnd(30, ' ');
+            regPlayer.namePadded = regPlayer.nameDisplay.padEnd(23, ' ');
             writePlayerList()
             return 1;
         }
         else
         {
+            maxGamesMissed = 0;
+            playerList.forEach(element => {
+                if(element.gamesMissed > maxGamesMissed)
+                    maxGamesMissed = element.gamesMissed;
+            });
             var p = new Player(summonerName, id, pRole, sRole);
+            p.gamesMissed = maxGamesMissed;
             playerList.push(p);
             channel.send("Player " + summonerName + " registered!");
             writePlayerList();
