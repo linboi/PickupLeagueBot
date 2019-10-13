@@ -534,9 +534,10 @@ function missingPlayer(channel, playerName, includeReplacement=false)
             var team = element.matchContainsPlayer(missingPlayer.discordId);
             if(team != -1)
             {
-                if(element.sparePlayers.length < 1)
+                if(element.sparePlayers.length < 1 && !includeReplacement)
                 {
                     channel.send("No extra players signed up to replace missing player");
+                    success = true;
                     return 0;
                 }
                 else
