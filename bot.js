@@ -362,10 +362,9 @@ function printPersonalStandings(channel, id)
     var foundAt = -1;
     playerList.sort(byMMR);
     playerList.forEach((element, index) =>{
-        if(element.discordId.substring(0, 16) == id.substring(0, 16))
+        if(element.discordId.substring(0, 15) == id.substring(0, 15))
             foundAt = index;
     });
-    console.log(foundAt);
     if(foundAt < 10)
         printStandings(channel, 1);
     else
@@ -433,7 +432,6 @@ function readPlayerList()
 
 function writePlayerList()
 {
-    playerList.sort(byID);
     var fileContents = "";
     for(var i = 0; i < playerList.length; i++)
     {
