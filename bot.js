@@ -4,12 +4,12 @@ var fs = require('fs');
 
 // -----CONSTANTS-----
 
-const VERSION = '1.3.4';
+const VERSION = '1.3.5';
 const gameDays = [1, 3]; // 0 is sunday, 1 is monday etc
 const signUpTime = 20;
 const gameTimes = [50, 110]; // minutes from signup time to team announcement
-const adminList = [225650967058710529, 91114718902636544];
-const channelsToListenIn = [628952731310358528, 591003151176564746, 608298295202414595];
+const adminList = ["225650967058710529", "91114718902636544"];
+const channelsToListenIn = ["628952731310358528", "591003151176564746", "608298295202414595"];
 
 // The amount of MMR lower someone should be considered if they're on a secondary role/autofilled
 const secondariesPenalty = 5;
@@ -25,7 +25,7 @@ var activeCheckinMessages = [];
 // Class to represent a player
 class Player 
 {
-    constructor(nameDisplay, discordId, rolePrimary, roleSecondary, mmr=1200, wins=0, losses=0, gamesMissed=0, kFactor=100)
+    constructor(nameDisplay, discordId, rolePrimary, roleSecondary, mmr=1200, wins=0, losses=0, gamesMissed=0, kFactor=100, trueID="")
     {
         this.nameDisplay = nameDisplay;
         this.discordId = discordId;
@@ -135,12 +135,12 @@ class Match
         var redArray = this.redTeam.toArray();
         for(var i = 0; i < blueArray.length; i++)
         {
-            if(blueArray[i].discordId == id)
+            if(blueArray[i].discordId.substring(0, 15) == id.substring(0, 15))
                 return 1;
         }
         for(var i = 0; i < redArray.length; i++)
         {
-            if(redArray[i].discordId == id)
+            if(redArray[i].discordId.substring(0, 15) == id.substring(0, 15))
                 return 2;
         }
         return -1;
@@ -152,19 +152,19 @@ class Match
         {
             switch(id)
             {
-                case this.blueTeam.top.discordId:
+                case this.blueTeam.top.discordId.substring(0, 15):
                     this.blueTeam.top = replacement;
                     return 1;
-                case this.blueTeam.jung.discordId:
+                case this.blueTeam.jung.discordId.substring(0, 15):
                     this.blueTeam.jung = replacement;
                     return 1;
-                case this.blueTeam.mid.discordId:
+                case this.blueTeam.mid.discordId.substring(0, 15):
                     this.blueTeam.mid = replacement;
                     return 1;
-                case this.blueTeam.adc.discordId:
+                case this.blueTeam.adc.discordId.substring(0, 15):
                     this.blueTeam.adc = replacement;
                     return 1;
-                case this.blueTeam.supp.discordId:
+                case this.blueTeam.supp.discordId.substring(0, 15):
                     this.blueTeam.supp = replacement;
                     return 1;
             }
@@ -173,19 +173,19 @@ class Match
         {
             switch(id)
             {
-                case this.redTeam.top.discordId:
+                case this.redTeam.top.discordId.substring(0, 15):
                     this.redTeam.top = replacement;
                     return 1;
-                case this.redTeam.jung.discordId:
+                case this.redTeam.jung.discordId.substring(0, 15):
                     this.redTeam.jung = replacement;
                     return 1;
-                case this.redTeam.mid.discordId:
+                case this.redTeam.mid.discordId.substring(0, 15):
                     this.redTeam.mid = replacement;
                     return 1;
-                case this.redTeam.adc.discordId:
+                case this.redTeam.adc.discordId.substring(0, 15):
                     this.redTeam.adc = replacement;
                     return 1;
-                case this.redTeam.supp.discordId:
+                case this.redTeam.supp.discordId.substring(0, 15):
                     this.redTeam.supp = replacement;
                     return 1;
             }
@@ -204,8 +204,24 @@ bot.once('ready', function (evt) {
     var ms = msToNextGame();
     console.log(ms);
     setTimeout(organiseGameTime, ms, gameTimes);
+    var thisid = 0;
+    playerList.forEach(element => {
+        if(element.nameDisplay.strEqual("tedblonde"))
+        {
+            thisid = element.discordId;
+        }
+    });
+    //playerList.sort(byID);
+    //writePlayerList();
+    //console.log(thisid);
+    //bot.users.get(thisid).send("hello");
+    //console.log("here");
     //repeatedlyStartGames(); // This starts a recursive function which will start a game at the next game time, then call itself.
 });
+
+function byID(a, b){
+    return (parseInt(a.discordId) > parseInt(b.discordId))?(1):(-1);
+}
 
 bot.on('message', message => {
     var isInListeningChannel = false;
@@ -228,18 +244,19 @@ bot.on('message', message => {
             message.channel.send("User is not an admin.");
             return;
         }
-        var expr = new RegExp('!admin (.+)? \'(.*)\'');
+        var expr = new RegExp('!admin (.+)? ?\'?(.*)\'?');
         var result = expr.exec(message.content);
-        if(!result)
+        console.log(result);
+        if(!result || !result[1])
         {
             message.channel.send("Badly formed command");
+            return;
         }
         var cmd = result[1];
         if(result[2])
         {
             var args = result[2];
         }
-        console.log(cmd);
         switch(cmd)
         {
             case 'inputresult':
@@ -297,9 +314,13 @@ bot.on('messageReactionAdd', (MessageReaction, user) =>
         {
             var playerIsRegistered = false;
             playerList.forEach(element => {
-                if(element.discordId == user.id)
+                if(element.discordId.substring(0, 15) == user.id.substring(0, 15))
                 {
                     playerIsRegistered = true;
+                    if(!element.trueID)
+                    {
+                        element.trueID = user.id;
+                    }
                 }
             });
             if(!playerIsRegistered)
@@ -341,9 +362,9 @@ function printPersonalStandings(channel, id)
     var foundAt = -1;
     playerList.sort(byMMR);
     playerList.forEach((element, index) =>{
-        if(element.discordId == id)
+        if(element.discordId.substring(0, 15) == id.substring(0, 15))
             foundAt = index;
-    })
+    });
     if(foundAt < 10)
         printStandings(channel, 1);
     else
@@ -388,7 +409,7 @@ function readPlayerList()
         for(i = 0; i < lines.length; i++)
         {
             var currentPlayerLine = lines[i].trim();
-            var expr = new RegExp('(.+) ([0-9]+) ([F|T|J|M|A|S])/([F|T|J|M|A|S]) ([0-9]+\.?[0-9]*) ([0-9]+)\-([0-9]+) ([0-9]+) ([0-9]+\.?[0-9]*).*$');
+            var expr = new RegExp('(.+) ([0-9]+) ([F|T|J|M|A|S])/([F|T|J|M|A|S]) ([0-9]+\.?[0-9]*) ([0-9]+)\-([0-9]+) ([0-9]+) ([0-9]+\.?[0-9]*) ?([0-9]+)?.*$');
             var result = expr.exec(currentPlayerLine);
             if(!result)
             {
@@ -397,8 +418,12 @@ function readPlayerList()
             }
             else
             {
-                temp = new Player(result[1], parseInt(result[2]), result[3], result[4], parseFloat(result[5]), wins=parseInt(result[6]), losses=parseInt(result[7]),
+                temp = new Player(result[1], result[2], result[3], result[4], parseFloat(result[5]), wins=parseInt(result[6]), losses=parseInt(result[7]),
                                     gamesMissed=parseInt(result[8]), kFactor=parseFloat(result[9]));
+                if(result[10])
+                    temp.trueID = result[10];
+                else
+                    temp.trueID = "";
                 playerList.push(temp);
             }
         }
@@ -418,7 +443,8 @@ function writePlayerList()
                         playerList[i].wins + "-" +
                         playerList[i].losses + " " +
                         playerList[i].gamesMissed + " " +
-                        playerList[i].kFactor + "\n";
+                        playerList[i].kFactor + " " +
+                        playerList[i].trueID + "\n";
     }
     fs.writeFile('players.txt', fileContents, (err, fd) => {
         if(err)
@@ -437,7 +463,7 @@ function addNewPlayer(text, id, channel){
         var alreadyRegistered = false;
         var regPlayer;
         playerList.forEach(element => {
-            if(element.discordId == id)
+            if(element.discordId.substring(0, 15) == id.substring(0, 15))
             {
                 alreadyRegistered = true;
                 channel.send("Player already registered, updating roles and IGN.");
@@ -998,7 +1024,7 @@ function playerListContains(id)
     var contains = -1;
     playerList.forEach((element, index) => 
         {
-            if(element.discordId == id)
+            if(element.discordId.substring(0, 15) == id.substring(0, 15))
                 contains = index;
         });
     return contains;
