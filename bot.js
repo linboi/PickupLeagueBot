@@ -4,12 +4,14 @@ var fs = require('fs');
 
 // -----CONSTANTS-----
 
-const VERSION = '1.3.5';
+const VERSION = '1.4.0';
 const gameDays = [1, 3]; // 0 is sunday, 1 is monday etc
 const signUpTime = 20;
 const gameTimes = [50, 110]; // minutes from signup time to team announcement
 const adminList = ["225650967058710529", "91114718902636544"];
 const channelsToListenIn = ["628952731310358528", "591003151176564746", "608298295202414595"];
+const TEAM_SIZE = 5; // the number of players on a team
+const NUM_TEAMS = 2; // the number of teams in one game
 
 // The amount of MMR lower someone should be considered if they're on a secondary role/autofilled
 const secondariesPenalty = 5;
@@ -43,6 +45,22 @@ class Player
     {
         return this.mmr;
     }
+
+    getMMRinPos(pos)
+    {
+        if(pos == this.rolePrimary)
+        {
+            return this.mmr;
+        }
+        else if(pos == this.roleSecondary)
+        {
+            return this.mmr - secondariesPenalty;
+        }
+        else
+        {
+            return this.mmr - autofillsPenalty;
+        }
+    }
 }
 
 class Team
@@ -60,8 +78,8 @@ class Team
 
     getMMR()
     {
-        var total = this.top.mmr + this.jung.mmr + this.mid.mmr + this.adc.mmr + this.supp.mmr;
-        return ((total/5) - (this.secondaries*secondariesPenalty + this.autofills*autofillsPenalty));
+        var total = this.top.getMMRinPos("T") + this.jung.getMMRinPos("J") + this.mid.getMMRinPos("M") + this.adc.getMMRinPos("A") + this.supp.getMMRinPos("S");
+        return total;
     }
 
     toArray()
@@ -135,12 +153,12 @@ class Match
         var redArray = this.redTeam.toArray();
         for(var i = 0; i < blueArray.length; i++)
         {
-            if(blueArray[i].discordId.substring(0, 15) == id.substring(0, 15))
+            if(blueArray[i].trueID == id)
                 return 1;
         }
         for(var i = 0; i < redArray.length; i++)
         {
-            if(redArray[i].discordId.substring(0, 15) == id.substring(0, 15))
+            if(redArray[i].trueID == id)
                 return 2;
         }
         return -1;
@@ -152,19 +170,19 @@ class Match
         {
             switch(id)
             {
-                case this.blueTeam.top.discordId.substring(0, 15):
+                case this.blueTeam.top.trueID:
                     this.blueTeam.top = replacement;
                     return 1;
-                case this.blueTeam.jung.discordId.substring(0, 15):
+                case this.blueTeam.jung.trueID:
                     this.blueTeam.jung = replacement;
                     return 1;
-                case this.blueTeam.mid.discordId.substring(0, 15):
+                case this.blueTeam.mid.trueID:
                     this.blueTeam.mid = replacement;
                     return 1;
-                case this.blueTeam.adc.discordId.substring(0, 15):
+                case this.blueTeam.adc.trueID:
                     this.blueTeam.adc = replacement;
                     return 1;
-                case this.blueTeam.supp.discordId.substring(0, 15):
+                case this.blueTeam.supp.trueID:
                     this.blueTeam.supp = replacement;
                     return 1;
             }
@@ -173,19 +191,19 @@ class Match
         {
             switch(id)
             {
-                case this.redTeam.top.discordId.substring(0, 15):
+                case this.redTeam.top.trueID:
                     this.redTeam.top = replacement;
                     return 1;
-                case this.redTeam.jung.discordId.substring(0, 15):
+                case this.redTeam.jung.trueID:
                     this.redTeam.jung = replacement;
                     return 1;
-                case this.redTeam.mid.discordId.substring(0, 15):
+                case this.redTeam.mid.trueID:
                     this.redTeam.mid = replacement;
                     return 1;
-                case this.redTeam.adc.discordId.substring(0, 15):
+                case this.redTeam.adc.trueID:
                     this.redTeam.adc = replacement;
                     return 1;
-                case this.redTeam.supp.discordId.substring(0, 15):
+                case this.redTeam.supp.trueID:
                     this.redTeam.supp = replacement;
                     return 1;
             }
@@ -203,6 +221,16 @@ bot.once('ready', function (evt) {
     console.log("Bot connected. Version: " + VERSION);
     var ms = msToNextGame();
     console.log(ms);
+    /*
+    bot.guilds.forEach(element => {
+        var role = element.roles.get("635536061493149709");
+        announcementsChannel.send(role.toString());
+        if(role)
+        {
+            console.log("hello");
+        }
+    });
+    */
     setTimeout(organiseGameTime, ms, gameTimes);
     var thisid = 0;
     playerList.forEach(element => {
@@ -299,9 +327,20 @@ bot.on('message', message => {
             case 'version':
                 message.channel.send("Bot running version: " + VERSION);
                 break;
+            case 'fixid':
+                fixDiscID(message.author.id);
+                break;
          }
      }
 });
+
+function fixDiscID(id)
+{
+    playerList.forEach(element => {
+        if(element.discordId.substring(0, 15) == id.substring(0, 15))
+            element.trueID = id;
+    });
+}
 
 bot.on('messageReactionAdd', (MessageReaction, user) =>
 {
@@ -363,7 +402,11 @@ function printPersonalStandings(channel, id)
     playerList.sort(byMMR);
     playerList.forEach((element, index) =>{
         if(element.discordId.substring(0, 15) == id.substring(0, 15))
+        {
             foundAt = index;
+            if(!element.trueID)
+                element.trueID = id;
+        }
     });
     if(foundAt < 10)
         printStandings(channel, 1);
@@ -495,6 +538,7 @@ function addNewPlayer(text, id, channel){
             regPlayer.nameDisplay = summonerName;
             regPlayer.rolePrimary = pRole; 
             regPlayer.roleSecondary = sRole;
+            regPlayer.trueID = id;
             regPlayer.namePadded = regPlayer.nameDisplay.padEnd(23, ' ');
             writePlayerList()
             return 1;
@@ -537,7 +581,10 @@ function missingPlayer(channel, playerName, includeReplacement=false)
             if(element.nameDisplay == replacementName)
             {
                 replacement = element;
-                found = true;
+                if(!element.trueID)
+                    channel.send("Replacement please use !fixID");
+                else
+                    found = true;
             }
         });
         if(!found)
@@ -557,7 +604,7 @@ function missingPlayer(channel, playerName, includeReplacement=false)
     {
         var success = false;
         activeGames.forEach(element => {
-            var team = element.matchContainsPlayer(missingPlayer.discordId);
+            var team = element.matchContainsPlayer(missingPlayer.trueID);
             if(team != -1)
             {
                 if(element.sparePlayers.length < 1 && !includeReplacement)
@@ -590,7 +637,8 @@ async function organiseGameTime(times)
         console.error("can't schedule more than 9 games in one message");
     var emojiList = ['1⃣', '2⃣', '3⃣', '4⃣', '5⃣', '6⃣', '7⃣', '8⃣', '9⃣'];
 
-    var signupMessageText = "Check in for registered players\nReact with the corresponding number to check in for a game\n";
+    
+    var signupMessageText = "<@635536330004234289>\nCheck in for registered players\nReact with the corresponding number to check in for a game\n";
     for(var i = 0; i < times.length; i++)
     {
         signupMessageText += "Game " + (i+1) + ": in " + times[i] + " minutes.\n";
@@ -620,11 +668,17 @@ async function buildMatch(message, emoji, final, restarted=false)
 
     message.reactions.forEach((element) => addPlayerToRound(element, roundPlayerList, emoji));
 
+
     if((roundPlayerList.length % 10) >= 8 && !restarted)
     {
         announcementsChannel.send("Almost enough players for an extra game (need " + (10-(roundPlayerList.length % 10)) + "), waiting another 5 minutes to start");
         setTimeout(buildMatch, 5*60*1000, message, emoji, final, restarted=true);
         return 0;
+    }
+
+    for(var i = 0; i < 20; i++)
+    {
+        roundPlayerList.push(playerList[i]);
     }
 
     var numOfGames = Math.floor(roundPlayerList.length / 10);
@@ -668,8 +722,12 @@ async function buildMatch(message, emoji, final, restarted=false)
     {
         gameMessage += "MATCH " + (i+1) + ":\n";
         var thisGame = new Match(teams[i*2], teams[(i*2)+1], sparePlayers);
-        gameMessage += thisGame.teamsString() + "\n\n";
-        activeGames.push(thisGame);
+        var balancedGame = balanceTeams(thisGame.blueTeam, thisGame.redTeam, thisGame.sparePlayers);
+        var oldDiff = Math.abs(thisGame.blueTeam.getMMR()-thisGame.redTeam.getMMR());
+        var newDiff = Math.abs(balancedGame.blueTeam.getMMR()-balancedGame.redTeam.getMMR());
+        gameMessage += balancedGame.teamsString() + "\n\n";
+        activeGames.push(balancedGame);
+        announcementsChannel.send("MMR diff between teams with old algo: " + oldDiff + " -- New: " + newDiff);
     }
     await announcementsChannel.send(gameMessage);
     if(final)
@@ -693,6 +751,10 @@ function addPlayerToRound(thisReaction, list, thisGame)
             if(playerIndex != -1)
             {
                 list.push(playerList[playerIndex]);
+            }
+            else
+            {
+                console.log("PLAYER LEFT OUT " + element.id);
             }
         });
     }
@@ -724,8 +786,6 @@ async function manualResult(channel, players)
     if(!overallSuccess)
         return 0;
 
-    for(var i = 0; i < playerObjects.length; i++)
-        console.log(playerObjects[i]);
     var blue = new Team(playerObjects[0], playerObjects[1], playerObjects[2], playerObjects[3], playerObjects[4]);
     var red = new Team(playerObjects[5], playerObjects[6], playerObjects[7], playerObjects[8], playerObjects[9]);
     var thisMatch = new Match(blue, red, []);
@@ -771,6 +831,30 @@ function matchmake(listOfPlayers, teams)
             unassignedPlayers--;
         }
     }
+}
+
+function balanceTeams(teamOne, teamTwo, sparePlayers)
+{
+    var totalMMR = teamOne.getMMR() + teamTwo.getMMR();
+    var playerMatrix = [teamOne.toArray(), teamTwo.toArray()];
+    var goalMMR = totalMMR/2;
+    var numCombinations = Math.pow(NUM_TEAMS, TEAM_SIZE);
+    var minDiff = 100000; // unreasonably large number
+    var iN = 31;
+    var finalTeam;
+    for(var i = 0; i < numCombinations; i++)
+    {
+        var tempTeam = new Team(playerMatrix[((16&i)>>4)][0], playerMatrix[((8&3)>>4)][1], playerMatrix[((4&i)>>2)][2], playerMatrix[((2&i)>>1)][3], playerMatrix[(1&i)][4]);
+        if(Math.abs(goalMMR - tempTeam.getMMR()) < minDiff)
+        {
+            console.log(Math.abs(goalMMR - tempTeam.getMMR()));
+            minDiff = Math.abs(goalMMR - tempTeam.getMMR());
+            iN = ~i & 31;
+            finalTeam = tempTeam;
+        }
+    }
+    var opponent = new Team(playerMatrix[((16&iN)>>4)][0], playerMatrix[((8&iN)>>3)][1], playerMatrix[((4&iN)>>2)][2], playerMatrix[((2&iN)>>1)][3], playerMatrix[(1&iN)][4]);
+    return new Match(finalTeam, opponent, sparePlayers)
 }
 
 // Places the player in a team based on their primary and secondary roles. If they don't fit or they've selected fill, returns 0
@@ -1023,10 +1107,12 @@ function playerListContains(id)
 {
     var contains = -1;
     playerList.forEach((element, index) => 
+    {
+        if(element.discordId.substring(0, 15) == id.substring(0, 15))
         {
-            if(element.discordId.substring(0, 15) == id.substring(0, 15))
-                contains = index;
-        });
+            contains = index;
+        }
+    });
     return contains;
 }
 
