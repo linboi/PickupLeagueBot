@@ -1,5 +1,5 @@
 var Discord = require('discord.js');
-var auth = require('./auth.json');
+//var auth = require('./auth.json');
 var fs = require('fs');
 
 // -----CONSTANTS-----
@@ -9,7 +9,7 @@ const gameDays = [1, 3]; // 0 is sunday, 1 is monday etc
 const signUpTime = 20;
 const gameTimes = [50, 110]; // minutes from signup time to team announcement
 const adminList = ["225650967058710529", "91114718902636544"];
-const channelsToListenIn = ["628952731310358528", "591003151176564746", "608298295202414595"];
+const channelsToListenIn = ["628952731310358528", "591003151176564746", "608298295202414595", "635905068373114932"];
 const TEAM_SIZE = 5; // the number of players on a team
 const NUM_TEAMS = 2; // the number of teams in one game
 
@@ -23,6 +23,7 @@ var playerList = [];
 
 var activeGames = [];
 var activeCheckinMessages = [];
+var registeredUser = false;
 
 // Class to represent a player
 class Player 
@@ -218,6 +219,7 @@ bot.login(auth.token);
 bot.once('ready', function (evt) {
     readPlayerList();
     announcementsChannel = bot.channels.get("591003151176564746");
+    
     console.log("Bot connected. Version: " + VERSION);
     var ms = msToNextGame();
     console.log(ms);
@@ -314,6 +316,10 @@ bot.on('message', message => {
             case 'roles':
             case 'register':
                 addNewPlayer(args, message.author.id, message.channel);
+                if(registeredUser == true) {
+                    var role = message.guild.roles.find(role => role.name === "pick-up league"); //"change 'pick-up league' to the name of the role."
+                    message.member.addRole(role);
+                }
                 break;
             case 'win':
                 resolveMatch(message.channel, message.author.id);
@@ -553,6 +559,7 @@ function addNewPlayer(text, id, channel){
             var p = new Player(summonerName, id, pRole, sRole);
             p.gamesMissed = maxGamesMissed;
             playerList.push(p);
+            registeredUser = true;
             channel.send("Player " + summonerName + " registered!");
             writePlayerList();
             return 1;
@@ -1117,5 +1124,4 @@ function swap(list, i, j)
     list[i] = list[j];
     list[j] = temp;
 }
-
 // -----------------------------------------END HELPERS-------------------------------------------------------
