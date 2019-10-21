@@ -4,7 +4,7 @@ var fs = require('fs');
 
 // -----CONSTANTS-----
 
-const VERSION = '1.4.0';
+const VERSION = '1.4.1';
 const gameDays = [1, 3]; // 0 is sunday, 1 is monday etc
 const signUpTime = 20;
 const gameTimes = [50, 110]; // minutes from signup time to team announcement
@@ -674,11 +674,6 @@ async function buildMatch(message, emoji, final, restarted=false)
         announcementsChannel.send("Almost enough players for an extra game (need " + (10-(roundPlayerList.length % 10)) + "), waiting another 5 minutes to start");
         setTimeout(buildMatch, 5*60*1000, message, emoji, final, restarted=true);
         return 0;
-    }
-
-    for(var i = 0; i < 20; i++)
-    {
-        roundPlayerList.push(playerList[i]);
     }
 
     var numOfGames = Math.floor(roundPlayerList.length / 10);
