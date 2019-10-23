@@ -1,3 +1,8 @@
+1.4.2 - 23/10/2019
+Add ability to revert
+Add old standings as separate file
+Fix admin commands
+
 1.4.0 - 21/10/2019
 Improve matchmaking
 More fixes to do with discord IDs

@@ -4,7 +4,7 @@ var fs = require('fs');
 
 // -----CONSTANTS-----
 
-const VERSION = '1.4.1';
+const VERSION = '1.4.2';
 const gameDays = [1, 3]; // 0 is sunday, 1 is monday etc
 const signUpTime = 20;
 const gameTimes = [50, 110]; // minutes from signup time to team announcement
@@ -216,7 +216,7 @@ const bot = new Discord.Client();
 bot.login(auth.token);
 
 bot.once('ready', function (evt) {
-    readPlayerList();
+    readPlayerList('players.txt');
     announcementsChannel = bot.channels.get("591003151176564746");
     console.log("Bot connected. Version: " + VERSION);
     var ms = msToNextGame();
@@ -272,8 +272,11 @@ bot.on('message', message => {
             message.channel.send("User is not an admin.");
             return;
         }
-        var expr = new RegExp('!admin (.+)? ?\'?(.*)\'?');
-        var result = expr.exec(message.content);
+        var expr = new RegExp('!admin (.+)');
+        var exprWithArgs = new RegExp('!admin (.+) \'(.+)\'');
+        var result = exprWithArgs.exec(message.content);
+        if(!result)
+            result = expr.exec(message.content);
         console.log(result);
         if(!result || !result[1])
         {
@@ -293,6 +296,9 @@ bot.on('message', message => {
             case 'write':
                 writePlayerList();
                 break;
+            case 'revert':
+                playerList = [];
+                readPlayerList(args);
             default:
                 message.channel.send("Unrecognised admin command");
 
@@ -437,9 +443,10 @@ function printPersonalStandings(channel, id)
     }
 }
 
-function readPlayerList()
+function readPlayerList(filename)
 {
-    fs.readFile('players.txt', 'utf8', (err, fd) => {
+    console.log(filename);
+    fs.readFile(filename, 'utf8', (err, fd) => {
         if (err) {
             if (err.code === 'ENOENT') {
                 console.error('players.txt does not exist in this directory');
