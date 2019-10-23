@@ -559,6 +559,7 @@ function addNewPlayer(text, id, channel){
             });
             var p = new Player(summonerName, id, pRole, sRole);
             p.gamesMissed = maxGamesMissed;
+            p.trueID = id;
             playerList.push(p);
             channel.send("Player " + summonerName + " registered!");
             writePlayerList();
