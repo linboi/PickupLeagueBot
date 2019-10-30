@@ -299,6 +299,7 @@ bot.on('message', message => {
             case 'revert':
                 playerList = [];
                 readPlayerList(args);
+                break;
             default:
                 message.channel.send("Unrecognised admin command");
 
@@ -625,7 +626,7 @@ function missingPlayer(channel, playerName, includeReplacement=false)
                 {
                     if(!includeReplacement)
                         replacement = element.sparePlayers.pop();
-                    element.replacePlayer(missingPlayer.discordId, team, replacement);
+                    element.replacePlayer(missingPlayer.trueID, team, replacement);
                     channel.send("Replaced missing player with " + replacement.nameDisplay + "\n" + 
                                 "Game is now -\n" + element.teamsString());
                     replacement.gamesMissed--;
