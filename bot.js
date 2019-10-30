@@ -629,7 +629,6 @@ function missingPlayer(channel, playerName, includeReplacement=false)
                     element.replacePlayer(missingPlayer.trueID, team, replacement);
                     channel.send("Replaced missing player with " + replacement.nameDisplay + "\n" + 
                                 "Game is now -\n" + element.teamsString());
-                    replacement.gamesMissed--;
                     success = true;
                 }
             }
