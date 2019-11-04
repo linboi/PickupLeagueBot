@@ -1,3 +1,6 @@
+1.4.3 - 04/11/2019
+Add extra admin commands
+
 1.4.2 - 23/10/2019
 Add ability to revert
 Add old standings as separate file

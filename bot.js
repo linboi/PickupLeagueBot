@@ -12,7 +12,6 @@ const adminList = ["225650967058710529", "91114718902636544"];
 const channelsToListenIn = ["628952731310358528", "591003151176564746", "608298295202414595"];
 const TEAM_SIZE = 5; // the number of players on a team
 const NUM_TEAMS = 2; // the number of teams in one game
-
 // The amount of MMR lower someone should be considered if they're on a secondary role/autofilled
 const secondariesPenalty = 5;
 const autofillsPenalty = 20;
@@ -232,13 +231,7 @@ bot.once('ready', function (evt) {
     });
     */
     setTimeout(organiseGameTime, ms, gameTimes);
-    var thisid = 0;
-    playerList.forEach(element => {
-        if(element.nameDisplay.strEqual("tedblonde"))
-        {
-            thisid = element.discordId;
-        }
-    });
+
     //playerList.sort(byID);
     //writePlayerList();
     //console.log(thisid);
@@ -300,6 +293,15 @@ bot.on('message', message => {
                 playerList = [];
                 readPlayerList(args);
                 break;
+            case 'printplayer':
+                adminPrintPlayer(message.channel, args);
+                break;
+            case 'losspreventedwin':
+                fakeResult(message.channel, args, 1);
+                break;
+            case 'losspreventedloss':
+                fakeResult(message.channel, args, 0);
+                break;
             default:
                 message.channel.send("Unrecognised admin command");
 
@@ -349,6 +351,20 @@ function fixDiscID(id)
     });
 }
 
+function adminPrintPlayer(channel, player)
+{
+    var found = false;
+    playerList.forEach(element => {
+        if(element.nameDisplay == player)
+        {
+            channel.send("Name: " + element.nameDisplay + " ID: " + element.discordId + " MMR: " + element.mmr + " kFactor: " + element.kFactor + " trueID: " + element.trueID);
+            found = true;
+        }
+    });
+    if(!found)
+        channel.send("Player " + player + " not found");
+}
+
 bot.on('messageReactionAdd', (MessageReaction, user) =>
 {
     if(user.bot == true)
@@ -360,7 +376,7 @@ bot.on('messageReactionAdd', (MessageReaction, user) =>
         {
             var playerIsRegistered = false;
             playerList.forEach(element => {
-                if(element.discordId.substring(0, 15) == user.id.substring(0, 15))
+                if((element.discordId.substring(0, 15) == user.id.substring(0, 15)) || element.trueID == user.id)
                 {
                     playerIsRegistered = true;
                     if(!element.trueID)
@@ -378,6 +394,39 @@ bot.on('messageReactionAdd', (MessageReaction, user) =>
         }
     });
 });
+
+function fakeResult(channel, players, win)
+{
+    players = players.split("'");
+    var playerObjects = [];
+    players.forEach(element => {
+        var found = false;
+        playerList.forEach(regPlayer => {
+            if(regPlayer.nameDisplay == element)
+            {
+                found = true;
+                playerObjects.push(regPlayer);
+                return;
+            }
+        });
+        if(!found)
+            channel.send("Failed to find player " + element);
+    });
+
+    playerObjects.forEach(element => {
+        if(win == 1)
+        {
+            element.wins++;
+            element.mmr = element.mmr + (element.kFactor*0.4);
+        }
+        else
+        {
+            element.losses++;
+            element.mmr = element.mmr - (element.kFactor*0.5);
+        }
+        
+    })
+}
 
 function repeatedlyStartGames()
 {
@@ -479,6 +528,7 @@ function readPlayerList(filename)
             }
         }
     });
+    console.log("done");
 }
 
 function writePlayerList()
