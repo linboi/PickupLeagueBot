@@ -7,7 +7,7 @@ var fs = require('fs');
 const VERSION = '1.4.2';
 const gameDays = [1, 3]; // 0 is sunday, 1 is monday etc
 const signUpTime = 20;
-const gameTimes = [50, 110]; // minutes from signup time to team announcement
+const gameTimes = [38, 98]; // minutes from signup time to team announcement
 const adminList = ["225650967058710529", "91114718902636544"];
 const channelsToListenIn = ["628952731310358528", "591003151176564746", "608298295202414595"];
 const TEAM_SIZE = 5; // the number of players on a team
@@ -1108,8 +1108,8 @@ function msToNextGame()
     var today = d.getDay(); // The current day of the week (0 is sunday, 1 is monday etc)
 
     var i = 0;
-    if(d.getHours() >= signUpTime) // Today's games are dealt with already
-        i++;
+    //if(d.getHours() >= signUpTime) // Today's games are dealt with already
+        //i++;
 
     // This finds the number of days until the next game day
     var success = false;
@@ -1125,8 +1125,9 @@ function msToNextGame()
         }
         i++;
     }
-    var signup = new Date(d.getFullYear(), d.getMonth(), d.getDate(), signUpTime);
-    return ((signup - d) + (24 * 60 * 60 * 1000 * daysToNextGameDay));
+    var signup = new Date(d.getFullYear(), d.getMonth(), d.getDate(), signUpTime, 12);
+    console.log((signup.getTime() - d.getTime()) + (24 * 60 * 60 * 1000 * daysToNextGameDay));
+    return ((signup.getTime() - d.getTime()) + (24 * 60 * 60 * 1000 * daysToNextGameDay));
 }
 
 function shuffle(list)
