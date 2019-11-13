@@ -357,7 +357,7 @@ function adminPrintPlayer(channel, player)
     playerList.forEach(element => {
         if(element.nameDisplay == player)
         {
-            channel.send("Name: " + element.nameDisplay + " ID: " + element.discordId + " MMR: " + element.mmr + " kFactor: " + element.kFactor + " trueID: " + element.trueID);
+            channel.send("Name: " + element.nameDisplay + " ID: " + element.discordId + " MMR: " + element.mmr + " kFactor: " + element.kFactor + " trueID: " + element.trueID + " games missed: " + element.gamesMissed);
             found = true;
         }
     });
