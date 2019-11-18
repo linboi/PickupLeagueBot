@@ -302,6 +302,8 @@ bot.on('message', message => {
             case 'losspreventedloss':
                 fakeResult(message.channel, args, 0);
                 break;
+            case 'addmissed':
+                addMissedGames(message.channel, args);
             default:
                 message.channel.send("Unrecognised admin command");
 
@@ -363,6 +365,32 @@ function adminPrintPlayer(channel, player)
     });
     if(!found)
         channel.send("Player " + player + " not found");
+}
+
+function addMissedGames(channel, args)
+{
+    args = args.split("'");
+    if(!args[0] || !args[1])
+    {
+        channel.send("Invalid arguments");
+        return;
+    }
+    else
+    {
+        var amount = parseInt(args[1]);
+    }
+    playerList.forEach(element => {
+        if(element.nameDisplay == player)
+        {
+            element.gamesMissed += amount;
+            found = true;
+            return;
+        }
+    });
+    if(!found)
+    {
+        channel.send("player not found");
+    }
 }
 
 bot.on('messageReactionAdd', (MessageReaction, user) =>
