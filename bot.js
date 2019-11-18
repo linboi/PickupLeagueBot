@@ -304,6 +304,7 @@ bot.on('message', message => {
                 break;
             case 'addmissed':
                 addMissedGames(message.channel, args);
+                break;
             default:
                 message.channel.send("Unrecognised admin command");
 
