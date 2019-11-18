@@ -370,6 +370,7 @@ function adminPrintPlayer(channel, player)
 function addMissedGames(channel, args)
 {
     args = args.split("'");
+    var amount = 0;
     if(!args[0] || !args[1])
     {
         channel.send("Invalid arguments");
@@ -377,11 +378,12 @@ function addMissedGames(channel, args)
     }
     else
     {
-        var amount = parseInt(args[1]);
+        amount = parseInt(args[1]);
     }
     playerList.forEach(element => {
-        if(element.nameDisplay == player)
+        if(element.nameDisplay == args[0])
         {
+            console.log(amount);
             element.gamesMissed += amount;
             found = true;
             return;
