@@ -26,7 +26,7 @@ var activeCheckinMessages = [];
 // Class to represent a player
 class Player 
 {
-    constructor(nameDisplay, discordId, rolePrimary, roleSecondary, mmr=1200, wins=0, losses=0, gamesMissed=0, kFactor=100, trueID="")
+    constructor(nameDisplay, discordId, rolePrimary, roleSecondary, mmr=1200, wins=0, losses=0, gamesMissed=0, kFactor=80, trueID="")
     {
         this.nameDisplay = nameDisplay;
         this.discordId = discordId;
@@ -220,23 +220,8 @@ bot.once('ready', function (evt) {
     console.log("Bot connected. Version: " + VERSION);
     var ms = msToNextGame();
     console.log(ms);
-    /*
-    bot.guilds.forEach(element => {
-        var role = element.roles.get("635536061493149709");
-        announcementsChannel.send(role.toString());
-        if(role)
-        {
-            console.log("hello");
-        }
-    });
-    */
-    setTimeout(organiseGameTime, ms, gameTimes);
 
-    //playerList.sort(byID);
-    //writePlayerList();
-    //console.log(thisid);
-    //bot.users.get(thisid).send("hello");
-    //console.log("here");
+    setTimeout(organiseGameTime, ms, gameTimes);
     //repeatedlyStartGames(); // This starts a recursive function which will start a game at the next game time, then call itself.
 });
 
@@ -305,6 +290,9 @@ bot.on('message', message => {
             case 'addmissed':
                 addMissedGames(message.channel, args);
                 break;
+            case 'softreset':
+                softReset(message.channel, args);
+                break;
             default:
                 message.channel.send("Unrecognised admin command");
 
@@ -351,6 +339,23 @@ function fixDiscID(id)
     playerList.forEach(element => {
         if(element.discordId.substring(0, 15) == id.substring(0, 15))
             element.trueID = id;
+    });
+}
+
+function softReset(channel, args)
+{
+    args = args.split("'");
+    if(!args[0] || !args[1])
+    {
+        channel.send("Bad arguments");
+    }
+    var newKFactor = parseInt(args[0]);
+    var mmrRatio = parseFloat(args[1]);
+    playerList.forEach(element => {
+        element.mmr = element.mmr + mmrRatio*(1200 - element.mmr);
+        element.wins = 0;
+        element.losses = 0;
+        element.kFactor = newKFactor;
     });
 }
 
@@ -1091,15 +1096,13 @@ function changeMMR(winningTeam, losingTeam)
         console.log("win + " + (winningTeam[i].kFactor*(1 - prob)) + "prob + " + (prob));
         winningTeam[i].mmr = winningTeam[i].mmr + winningTeam[i].kFactor*(1 - prob);   // Elo calculation
 
-        var winrate = winningTeam[i].wins/(winningTeam[i].losses+winningTeam[i].wins);
-        if((winningTeam[i].kFactor != 40) && (winrate < 0.7) && (winrate > 0.3))
+        if(winningTeam[i].kFactor != 40)
         {
-            winningTeam[i].kFactor = winningTeam[i].kFactor*0.9; // Up system's confidence when winrate is close to 50%
-            if(winningTeam[i].kFactor <= 42)
+            winningTeam[i].kFactor = winningTeam[i].kFactor*0.92; // Up system's confidence
+            if(winningTeam[i].kFactor <= 41)
                 winningTeam[i].kFactor = 40; // Set to a stable number when low enough
         }
-        else if(winningTeam[i].kFactor != 40 && winningTeam[i].kFactor < 85)
-            winningTeam[i].kFactor = winningTeam[i].kFactor*1.1; // Lower confidence otherwise
+
     }
 
     for(var i = 0; i < losingTeam.length; i++)
@@ -1110,15 +1113,12 @@ function changeMMR(winningTeam, losingTeam)
         console.log("loss + " + (losingTeam[i].kFactor*(0 - prob)) + "prob + " + (prob));
         losingTeam[i].mmr = losingTeam[i].mmr + losingTeam[i].kFactor*(0 - prob); // Elo calculation
 
-        var winrate = losingTeam[i].wins/(losingTeam[i].losses+losingTeam[i].wins);
-        if((losingTeam[i].kFactor != 40) && (winrate < 0.7) && (winrate > 0.3))
+        if(losingTeam[i].kFactor != 40)
         {
-            losingTeam[i].kFactor = losingTeam[i].kFactor*0.9; // Up system's confidence when winrate is close to 50%
-            if(losingTeam[i].kFactor <= 42)
+            losingTeam[i].kFactor = losingTeam[i].kFactor*0.92; // Up system's confidence
+            if(losingTeam[i].kFactor <= 41)
                 losingTeam[i].kFactor = 40;
         }
-        else if(losingTeam[i].kFactor != 40 && losingTeam[i].kFactor < 85)
-            losingTeam[i].kFactor = losingTeam[i].kFactor*1.1; // Lower confidence otherwise
     }
     writePlayerList();
 }
