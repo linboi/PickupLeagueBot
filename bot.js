@@ -7,7 +7,7 @@ var fs = require('fs');
 const VERSION = '1.4.2';
 const gameDays = [1, 3, 4]; // 0 is sunday, 1 is monday etc
 const signUpTime = 20;
-const gameTimes = [50, 110]; // minutes from signup time to team announcement
+const gameTimes = [5, 60] // minutes from signup time to team announcement
 const adminList = ["225650967058710529", "91114718902636544"];
 const channelsToListenIn = ["628952731310358528", "591003151176564746", "608298295202414595"];
 const TEAM_SIZE = 5; // the number of players on a team
@@ -221,7 +221,7 @@ bot.once('ready', function (evt) {
     var ms = msToNextGame();
     console.log(ms);
 
-    setTimeout(organiseGameTime, ms, gameTimes);
+    setTimeout(organiseGameTime, 0, gameTimes);
     //repeatedlyStartGames(); // This starts a recursive function which will start a game at the next game time, then call itself.
 });
 
