@@ -12,6 +12,7 @@ const adminList = ["225650967058710529", "91114718902636544"];
 const channelsToListenIn = ["628952731310358528", "591003151176564746", "608298295202414595"];
 const TEAM_SIZE = 5; // the number of players on a team
 const NUM_TEAMS = 2; // the number of teams in one game
+
 // The amount of MMR lower someone should be considered if they're on a secondary role/autofilled
 const secondariesPenalty = 5;
 const autofillsPenalty = 20;
@@ -23,6 +24,7 @@ var playerList = [];
 var activeGames = [];
 var activeCheckinMessages = [];
 
+var importantDebugInfo = 0;
 // Class to represent a player
 class Player 
 {
@@ -217,11 +219,13 @@ bot.login(auth.token);
 bot.once('ready', function (evt) {
     readPlayerList('players.txt');
     announcementsChannel = bot.channels.get("591003151176564746");
+    importantDebugInfo = bot.users.get("225650967058710529");
     console.log("Bot connected. Version: " + VERSION);
+    importantDebugInfo.send("Bot connected. Version: " + VERSION);
     var ms = msToNextGame();
     console.log(ms);
 
-    setTimeout(organiseGameTime, ms, gameTimes);
+    setTimeout(organiseGameTime, 0, gameTimes);
     //repeatedlyStartGames(); // This starts a recursive function which will start a game at the next game time, then call itself.
 });
 
@@ -366,6 +370,17 @@ function adminPrintPlayer(channel, player)
         if(element.nameDisplay == player)
         {
             channel.send("Name: " + element.nameDisplay + " ID: " + element.discordId + " MMR: " + element.mmr + " kFactor: " + element.kFactor + " trueID: " + element.trueID + " games missed: " + element.gamesMissed);
+            if(element.trueID)
+            {
+                if(bot.users.get(element.trueID).bot)
+                {
+                    channel.send("user is a bot");
+                }
+                else
+                {
+                    channel.send("user is not a bot");
+                }
+            }
             found = true;
         }
     });
@@ -405,6 +420,7 @@ bot.on('messageReactionAdd', (MessageReaction, user) =>
 {
     if(user.bot == true)
     {
+        importantDebugInfo.send("bot reacted to message");
         return 1;
     }
     activeCheckinMessages.forEach((element) => {
