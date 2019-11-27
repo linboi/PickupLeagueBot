@@ -225,7 +225,7 @@ bot.once('ready', function (evt) {
     var ms = msToNextGame();
     console.log(ms);
 
-    setTimeout(organiseGameTime, 0, gameTimes);
+    setTimeout(organiseGameTime, ms, gameTimes);
     //repeatedlyStartGames(); // This starts a recursive function which will start a game at the next game time, then call itself.
 });
 
