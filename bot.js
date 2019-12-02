@@ -748,7 +748,7 @@ async function organiseGameTime(times)
     var emojiList = ['1⃣', '2⃣', '3⃣', '4⃣', '5⃣', '6⃣', '7⃣', '8⃣', '9⃣'];
 
     
-    var signupMessageText = "<@635536330004234289>\nCheck in for registered players\nReact with the corresponding number to check in for a game\n";
+    var signupMessageText = "<@595354598814908481>\nCheck in for registered players\nReact with the corresponding number to check in for a game\n";
     for(var i = 0; i < times.length; i++)
     {
         signupMessageText += "Game " + (i+1) + ": in " + times[i] + " minutes.\n";
