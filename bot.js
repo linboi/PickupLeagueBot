@@ -222,11 +222,11 @@ bot.once('ready', function (evt) {
     importantDebugInfo = bot.users.get("225650967058710529");
     console.log("Bot connected. Version: " + VERSION);
     importantDebugInfo.send("Bot connected. Version: " + VERSION);
-    var ms = msToNextGame();
-    console.log(ms);
+    //var ms = msToNextGame();
+    //console.log(ms);
 
-    setTimeout(organiseGameTime, ms, gameTimes);
-    //repeatedlyStartGames(); // This starts a recursive function which will start a game at the next game time, then call itself.
+    //setTimeout(organiseGameTime, ms, gameTimes);
+    repeatedlyStartGames(); // This starts a recursive function which will start a game at the next game time, then call itself.
 });
 
 function byID(a, b){
