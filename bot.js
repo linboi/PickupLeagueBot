@@ -12,6 +12,7 @@ const adminList = ["225650967058710529", "91114718902636544"];
 const channelsToListenIn = ["628952731310358528", "591003151176564746", "608298295202414595"];
 const TEAM_SIZE = 5; // the number of players on a team
 const NUM_TEAMS = 2; // the number of teams in one game
+const BAN_LIST = ["255917014911025152", "213718039957340163"];
 
 // The amount of MMR lower someone should be considered if they're on a secondary role/autofilled
 const secondariesPenalty = 5;
@@ -420,7 +421,7 @@ bot.on('messageReactionAdd', (MessageReaction, user) =>
 {
     if(user.bot == true)
     {
-        importantDebugInfo.send("bot reacted to message");
+        console.log("bot reacted to message");
         return 1;
     }
     activeCheckinMessages.forEach((element) => {
@@ -442,6 +443,16 @@ bot.on('messageReactionAdd', (MessageReaction, user) =>
                 MessageReaction.remove(user);
                 user.send("You must register using '!register [summonername] [primaryrole]/[secondaryrole]' before you can check-in to a game.\n" +
                 "**Your check-in has been removed, please check in again after registering**");
+            }
+            else
+            {
+                BAN_LIST.forEach(element => {
+                    if(element == user.id)
+                    {
+                        MessageReaction.remove(user);
+                        user.send("You are currently banned from pickup league, your reaction has been removed.");
+                    }
+                });
             }
         }
     });
